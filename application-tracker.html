@@ -403,9 +403,15 @@
                     </div>
                 </div>
 
-                <div class="form-group">
-                    <label>JD Link <span style="color: #6b7280; font-weight: normal;">(provide link OR paste description below)</span></label>
-                    <input type="text" id="jdLink" placeholder="https://...">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Date Applied</label>
+                        <input type="date" id="dateApplied">
+                    </div>
+                    <div class="form-group">
+                        <label>JD Link <span style="color: #6b7280; font-weight: normal;">(or paste description below)</span></label>
+                        <input type="text" id="jdLink" placeholder="https://...">
+                    </div>
                 </div>
 
                 <div class="form-group">
@@ -453,6 +459,8 @@
         document.addEventListener('DOMContentLoaded', function() {
             // URL is hardcoded, so always hide setup and load candidates
             document.getElementById('setupBox').style.display = 'none';
+            // Set default date to today
+            document.getElementById('dateApplied').value = new Date().toISOString().split('T')[0];
             loadCandidates();
         });
 
@@ -647,7 +655,7 @@
                         whoApplied: whoApplied,
                         jdLink: jdLink,
                         jobDescription: jobDescription.substring(0, 1000),
-                        dateApplied: new Date().toISOString().split('T')[0],
+                        dateApplied: document.getElementById('dateApplied').value || new Date().toISOString().split('T')[0],
                         resumeSummary: resumeText.substring(0, 500),
                         status: 'Applied'
                     })
@@ -665,6 +673,7 @@
                 document.getElementById('newPersonName').style.display = 'none';
                 document.getElementById('jdLink').value = '';
                 document.getElementById('jobDescription').value = '';
+                document.getElementById('dateApplied').value = new Date().toISOString().split('T')[0];
                 document.getElementById('fileName').textContent = '';
                 resumeText = '';
                 
