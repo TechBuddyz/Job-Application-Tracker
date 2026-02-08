@@ -381,14 +381,20 @@
                     </div>
                     <div class="form-group">
                         <label>Company</label>
-                        <input type="text" id="company" placeholder="e.g., Google">
+                        <div class="autocomplete-container">
+                            <input type="text" id="company" placeholder="e.g., Google" oninput="filterCompanies()" onfocus="filterCompanies()">
+                            <div class="autocomplete-list" id="companyList"></div>
+                        </div>
                     </div>
                 </div>
 
                 <div class="form-row">
                     <div class="form-group">
                         <label>Job Title</label>
-                        <input type="text" id="jobTitle" placeholder="e.g., Software Engineer">
+                        <div class="autocomplete-container">
+                            <input type="text" id="jobTitle" placeholder="e.g., Software Engineer" oninput="filterJobTitles()" onfocus="filterJobTitles()">
+                            <div class="autocomplete-list" id="jobTitleList"></div>
+                        </div>
                     </div>
                     <div class="form-group">
                         <label>Who Applied</label>
@@ -452,8 +458,10 @@
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
         let candidates = [];
+        let companies = [];
+        let jobTitles = [];
         let resumeText = '';
-        let SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz-tqtuLRaIB1FzVwc2Lr-Gn5dImFg1UE-qo3no7cW1ma1gVBtwj7JTd8U5j1R9zRkS/exec';
+        let SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwIGn2xjv93JNC23aDEnwu2-J_hvOZlLrOiTT0RL49TQD9ptstwCNjuNokEm6kOZOn5/exec';
 
         // Initialize
         document.addEventListener('DOMContentLoaded', function() {
@@ -462,6 +470,8 @@
             // Set default date to today
             document.getElementById('dateApplied').value = new Date().toISOString().split('T')[0];
             loadCandidates();
+            loadCompanies();
+            loadJobTitles();
         });
 
         function saveScriptUrl() {
@@ -544,6 +554,84 @@
             document.getElementById('candidateList').classList.remove('show');
         }
 
+        // Company autocomplete
+        async function loadCompanies() {
+            if (!SCRIPT_URL) return;
+            
+            try {
+                const response = await fetch(`${SCRIPT_URL}?action=getCompanies`);
+                const data = await response.json();
+                companies = data.companies || [];
+            } catch (error) {
+                console.error('Failed to load companies:', error);
+            }
+        }
+
+        function filterCompanies() {
+            const input = document.getElementById('company').value.toLowerCase();
+            const list = document.getElementById('companyList');
+            
+            if (!input) {
+                list.classList.remove('show');
+                return;
+            }
+            
+            const filtered = companies.filter(c => c.toLowerCase().includes(input));
+            
+            if (filtered.length > 0) {
+                list.innerHTML = filtered.map(c => 
+                    `<div class="autocomplete-item" onclick="selectCompany('${c.replace(/'/g, "\\'")}')">${c}</div>`
+                ).join('');
+                list.classList.add('show');
+            } else {
+                list.classList.remove('show');
+            }
+        }
+
+        function selectCompany(name) {
+            document.getElementById('company').value = name;
+            document.getElementById('companyList').classList.remove('show');
+        }
+
+        // Job Title autocomplete
+        async function loadJobTitles() {
+            if (!SCRIPT_URL) return;
+            
+            try {
+                const response = await fetch(`${SCRIPT_URL}?action=getJobTitles`);
+                const data = await response.json();
+                jobTitles = data.jobTitles || [];
+            } catch (error) {
+                console.error('Failed to load job titles:', error);
+            }
+        }
+
+        function filterJobTitles() {
+            const input = document.getElementById('jobTitle').value.toLowerCase();
+            const list = document.getElementById('jobTitleList');
+            
+            if (!input) {
+                list.classList.remove('show');
+                return;
+            }
+            
+            const filtered = jobTitles.filter(j => j.toLowerCase().includes(input));
+            
+            if (filtered.length > 0) {
+                list.innerHTML = filtered.map(j => 
+                    `<div class="autocomplete-item" onclick="selectJobTitle('${j.replace(/'/g, "\\'")}')">${j}</div>`
+                ).join('');
+                list.classList.add('show');
+            } else {
+                list.classList.remove('show');
+            }
+        }
+
+        function selectJobTitle(title) {
+            document.getElementById('jobTitle').value = title;
+            document.getElementById('jobTitleList').classList.remove('show');
+        }
+
         function handleWhoAppliedChange() {
             const select = document.getElementById('whoApplied');
             const newPersonInput = document.getElementById('newPersonName');
@@ -567,8 +655,10 @@
 
         // Hide autocomplete when clicking outside
         document.addEventListener('click', function(e) {
-            if (!e.target.closest('.autocomplete-wrapper')) {
+            if (!e.target.closest('.autocomplete-wrapper') && !e.target.closest('.autocomplete-container')) {
                 document.getElementById('candidateList').classList.remove('show');
+                document.getElementById('companyList').classList.remove('show');
+                document.getElementById('jobTitleList').classList.remove('show');
             }
         });
 
@@ -677,8 +767,10 @@
                 document.getElementById('fileName').textContent = '';
                 resumeText = '';
                 
-                // Reload candidates list
+                // Reload autocomplete lists
                 loadCandidates();
+                loadCompanies();
+                loadJobTitles();
                 
             } catch (error) {
                 showError('Failed to save: ' + error.message);
