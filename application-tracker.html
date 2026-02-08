@@ -391,13 +391,30 @@
                         <input type="text" id="jobTitle" placeholder="e.g., Software Engineer">
                     </div>
                     <div class="form-group">
-                        <label>JD Link (optional)</label>
-                        <input type="text" id="jdLink" placeholder="https://...">
+                        <label>Who Applied</label>
+                        <select id="whoApplied" onchange="handleWhoAppliedChange()">
+                            <option value="">Select person</option>
+                            <option value="Priyanka">Priyanka</option>
+                            <option value="Prabhu">Prabhu</option>
+                            <option value="Sanu">Sanu</option>
+                            <option value="__new__">+ Add New Person</option>
+                        </select>
+                        <input type="text" id="newPersonName" placeholder="Enter name..." style="display: none; margin-top: 8px;">
                     </div>
                 </div>
 
                 <div class="form-group">
-                    <label>Resume (optional - for reference)</label>
+                    <label>JD Link <span style="color: #6b7280; font-weight: normal;">(provide link OR paste description below)</span></label>
+                    <input type="text" id="jdLink" placeholder="https://...">
+                </div>
+
+                <div class="form-group">
+                    <label>Job Description <span style="color: #6b7280; font-weight: normal;">(required if no link provided)</span></label>
+                    <textarea id="jobDescription" rows="4" style="width: 100%; padding: 10px 12px; border: 1px solid #e5e7eb; border-radius: 6px; font-size: 0.875rem; font-family: inherit; resize: vertical;" placeholder="Paste the job description here..."></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label>Resume</label>
                     <div class="file-upload" onclick="document.getElementById('resumeFile').click()">
                         <input type="file" id="resumeFile" accept=".pdf,.docx" onchange="handleFileUpload(event)">
                         <div class="file-upload-text">Click to upload PDF or DOCX</div>
@@ -519,6 +536,27 @@
             document.getElementById('candidateList').classList.remove('show');
         }
 
+        function handleWhoAppliedChange() {
+            const select = document.getElementById('whoApplied');
+            const newPersonInput = document.getElementById('newPersonName');
+            
+            if (select.value === '__new__') {
+                newPersonInput.style.display = 'block';
+                newPersonInput.focus();
+            } else {
+                newPersonInput.style.display = 'none';
+                newPersonInput.value = '';
+            }
+        }
+
+        function getWhoApplied() {
+            const select = document.getElementById('whoApplied');
+            if (select.value === '__new__') {
+                return document.getElementById('newPersonName').value.trim();
+            }
+            return select.value;
+        }
+
         // Hide autocomplete when clicking outside
         document.addEventListener('click', function(e) {
             if (!e.target.closest('.autocomplete-wrapper')) {
@@ -567,10 +605,22 @@
             const candidate = document.getElementById('candidateName').value.trim();
             const company = document.getElementById('company').value.trim();
             const jobTitle = document.getElementById('jobTitle').value.trim();
+            const whoApplied = getWhoApplied();
             const jdLink = document.getElementById('jdLink').value.trim();
+            const jobDescription = document.getElementById('jobDescription').value.trim();
             
             if (!candidate || !company || !jobTitle) {
                 showError('Please fill in Candidate Name, Company, and Job Title');
+                return;
+            }
+            
+            if (!whoApplied) {
+                showError('Please select or enter who applied');
+                return;
+            }
+            
+            if (!jdLink && !jobDescription) {
+                showError('Please provide either a JD Link or paste the Job Description');
                 return;
             }
             
@@ -594,7 +644,9 @@
                         candidate: candidate,
                         company: company,
                         jobTitle: jobTitle,
+                        whoApplied: whoApplied,
                         jdLink: jdLink,
+                        jobDescription: jobDescription.substring(0, 1000),
                         dateApplied: new Date().toISOString().split('T')[0],
                         resumeSummary: resumeText.substring(0, 500),
                         status: 'Applied'
@@ -608,7 +660,11 @@
                 document.getElementById('candidateName').value = '';
                 document.getElementById('company').value = '';
                 document.getElementById('jobTitle').value = '';
+                document.getElementById('whoApplied').value = '';
+                document.getElementById('newPersonName').value = '';
+                document.getElementById('newPersonName').style.display = 'none';
                 document.getElementById('jdLink').value = '';
+                document.getElementById('jobDescription').value = '';
                 document.getElementById('fileName').textContent = '';
                 resumeText = '';
                 
@@ -643,6 +699,7 @@
                                     <th>Candidate</th>
                                     <th>Company</th>
                                     <th>Job Title</th>
+                                    <th>Applied By</th>
                                     <th>Date</th>
                                     <th>Status</th>
                                 </tr>
@@ -655,6 +712,7 @@
                                         <td>
                                             ${app.jdLink ? `<a href="${app.jdLink}" target="_blank" class="jd-link">${app.jobTitle}</a>` : app.jobTitle}
                                         </td>
+                                        <td>${app.whoApplied || '-'}</td>
                                         <td>${app.dateApplied}</td>
                                         <td><span class="status-badge status-${app.status?.toLowerCase() || 'applied'}">${app.status || 'Applied'}</span></td>
                                     </tr>
