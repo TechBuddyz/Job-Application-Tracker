@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Job Application Tracker</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: #0f1419;
+            min-height: 100vh;
+            padding: 48px 24px;
+            color: #1a1a1a;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 32px;
+        }
+
+        .header h1 {
+            font-size: 1.75rem;
+            font-weight: 600;
+            color: #f5f5f5;
+            margin-bottom: 8px;
+        }
+
+        .header p {
+            font-size: 0.9375rem;
+            color: #94a3b8;
+        }
+
+        .card {
+            background: #ffffff;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+            border: 1px solid #e5e7eb;
+            padding: 32px;
+            margin-bottom: 24px;
+        }
+
+        .card h2 {
+            font-size: 1rem;
+            font-weight: 600;
+            color: #1f2937;
+            margin-bottom: 20px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: #374151;
+            margin-bottom: 6px;
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            font-size: 0.875rem;
+            color: #374151;
+            background: #fafafa;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #6366f1;
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+        }
+
+        .autocomplete-wrapper {
+            position: relative;
+        }
+
+        .autocomplete-list {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-top: none;
+            border-radius: 0 0 6px 6px;
+            max-height: 200px;
+            overflow-y: auto;
+            z-index: 100;
+            display: none;
+        }
+
+        .autocomplete-list.show {
+            display: block;
+        }
+
+        .autocomplete-item {
+            padding: 10px 12px;
+            cursor: pointer;
+            font-size: 0.875rem;
+        }
+
+        .autocomplete-item:hover {
+            background: #f3f4f6;
+        }
+
+        .file-upload {
+            border: 2px dashed #e5e7eb;
+            border-radius: 6px;
+            padding: 24px;
+            text-align: center;
+            cursor: pointer;
+            transition: border-color 0.2s;
+        }
+
+        .file-upload:hover {
+            border-color: #6366f1;
+        }
+
+        .file-upload input {
+            display: none;
+        }
+
+        .file-upload-text {
+            color: #6b7280;
+            font-size: 0.875rem;
+        }
+
+        .file-name {
+            color: #059669;
+            font-weight: 500;
+            margin-top: 8px;
+        }
+
+        .btn {
+            background: #6366f1;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            font-size: 0.9375rem;
+            font-weight: 500;
+            cursor: pointer;
+            width: 100%;
+            transition: background 0.2s;
+        }
+
+        .btn:hover {
+            background: #4f46e5;
+        }
+
+        .btn:disabled {
+            background: #9ca3af;
+            cursor: not-allowed;
+        }
+
+        .btn-secondary {
+            background: #f3f4f6;
+            color: #374151;
+        }
+
+        .btn-secondary:hover {
+            background: #e5e7eb;
+        }
+
+        .setup-box {
+            background: #fef3c7;
+            border: 1px solid #fcd34d;
+            border-radius: 6px;
+            padding: 16px;
+            margin-bottom: 24px;
+            font-size: 0.875rem;
+            color: #92400e;
+        }
+
+        .setup-box code {
+            background: #fde68a;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: monospace;
+        }
+
+        .applications-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.875rem;
+        }
+
+        .applications-table th,
+        .applications-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .applications-table th {
+            background: #f9fafb;
+            font-weight: 600;
+            color: #374151;
+        }
+
+        .applications-table tr:hover {
+            background: #f9fafb;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+
+        .status-applied {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+
+        .status-interview {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .status-rejected {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .status-offer {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .jd-link {
+            color: #6366f1;
+            text-decoration: none;
+        }
+
+        .jd-link:hover {
+            text-decoration: underline;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #6b7280;
+        }
+
+        .success-message {
+            background: #d1fae5;
+            border: 1px solid #34d399;
+            color: #065f46;
+            padding: 12px 16px;
+            border-radius: 6px;
+            margin-bottom: 16px;
+            display: none;
+        }
+
+        .success-message.show {
+            display: block;
+        }
+
+        .error-message {
+            background: #fee2e2;
+            border: 1px solid #f87171;
+            color: #991b1b;
+            padding: 12px 16px;
+            border-radius: 6px;
+            margin-bottom: 16px;
+            display: none;
+        }
+
+        .error-message.show {
+            display: block;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 24px;
+        }
+
+        .tab {
+            padding: 10px 20px;
+            background: #f3f4f6;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: #6b7280;
+        }
+
+        .tab.active {
+            background: #6366f1;
+            color: white;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        @media (max-width: 640px) {
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Job Application Tracker</h1>
+            <p>Track your job applications across candidates</p>
+        </div>
+
+        <div class="card">
+            <div class="setup-box" id="setupBox">
+                <strong>Setup Required:</strong> Enter your Google Apps Script Web App URL below.
+                <div style="margin-top: 12px;">
+                    <input type="text" id="scriptUrl" placeholder="https://script.google.com/macros/s/..." 
+                           style="width: 100%; padding: 8px; border: 1px solid #fcd34d; border-radius: 4px;">
+                    <button onclick="saveScriptUrl()" style="margin-top: 8px; padding: 8px 16px; background: #f59e0b; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                        Save URL
+                    </button>
+                </div>
+            </div>
+
+            <div class="tabs">
+                <button class="tab active" onclick="showTab('add')">Add Application</button>
+                <button class="tab" onclick="showTab('history')">View History</button>
+            </div>
+
+            <div id="successMessage" class="success-message"></div>
+            <div id="errorMessage" class="error-message"></div>
+
+            <!-- Add Application Tab -->
+            <div id="addTab" class="tab-content active">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Candidate Name</label>
+                        <div class="autocomplete-wrapper">
+                            <input type="text" id="candidateName" placeholder="Enter or select candidate" 
+                                   oninput="filterCandidates()" onfocus="showCandidateList()">
+                            <div class="autocomplete-list" id="candidateList"></div>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Company</label>
+                        <input type="text" id="company" placeholder="e.g., Google">
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Job Title</label>
+                        <input type="text" id="jobTitle" placeholder="e.g., Software Engineer">
+                    </div>
+                    <div class="form-group">
+                        <label>JD Link (optional)</label>
+                        <input type="text" id="jdLink" placeholder="https://...">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Resume (optional - for reference)</label>
+                    <div class="file-upload" onclick="document.getElementById('resumeFile').click()">
+                        <input type="file" id="resumeFile" accept=".pdf,.docx" onchange="handleFileUpload(event)">
+                        <div class="file-upload-text">Click to upload PDF or DOCX</div>
+                        <div class="file-name" id="fileName"></div>
+                    </div>
+                </div>
+
+                <button class="btn" id="saveBtn" onclick="saveApplication()">Save Application</button>
+            </div>
+
+            <!-- History Tab -->
+            <div id="historyTab" class="tab-content">
+                <div class="form-group" style="margin-bottom: 20px;">
+                    <label>Filter by Candidate</label>
+                    <select id="filterCandidate" onchange="loadApplications()">
+                        <option value="">All Candidates</option>
+                    </select>
+                </div>
+
+                <div id="applicationsContainer">
+                    <div class="empty-state">Loading applications...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // PDF.js configuration
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+        let candidates = [];
+        let resumeText = '';
+        let SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwfISTSf5esogAZ6vhocMa3CRkZ3fzbNGuQh7SxnpeSxpl0Ogg7s26oTTLsE7nlLrAA/exec';
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            // URL is hardcoded, so always hide setup and load candidates
+            document.getElementById('setupBox').style.display = 'none';
+            loadCandidates();
+        });
+
+        function saveScriptUrl() {
+            const url = document.getElementById('scriptUrl').value.trim();
+            if (url) {
+                SCRIPT_URL = url;
+                localStorage.setItem('scriptUrl', url);
+                document.getElementById('setupBox').style.display = 'none';
+                loadCandidates();
+                showSuccess('Script URL saved successfully!');
+            }
+        }
+
+        function showTab(tab) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+            
+            document.querySelector(`.tab:nth-child(${tab === 'add' ? 1 : 2})`).classList.add('active');
+            document.getElementById(tab + 'Tab').classList.add('active');
+            
+            if (tab === 'history') {
+                loadApplications();
+            }
+        }
+
+        async function loadCandidates() {
+            if (!SCRIPT_URL) return;
+            
+            try {
+                const response = await fetch(`${SCRIPT_URL}?action=getCandidates`);
+                const data = await response.json();
+                candidates = data.candidates || [];
+                updateCandidateFilter();
+            } catch (error) {
+                console.error('Failed to load candidates:', error);
+            }
+        }
+
+        function updateCandidateFilter() {
+            const select = document.getElementById('filterCandidate');
+            select.innerHTML = '<option value="">All Candidates</option>';
+            candidates.forEach(c => {
+                select.innerHTML += `<option value="${c}">${c}</option>`;
+            });
+        }
+
+        function filterCandidates() {
+            const input = document.getElementById('candidateName').value.toLowerCase();
+            const list = document.getElementById('candidateList');
+            
+            if (!input) {
+                list.classList.remove('show');
+                return;
+            }
+            
+            const filtered = candidates.filter(c => c.toLowerCase().includes(input));
+            
+            if (filtered.length > 0) {
+                list.innerHTML = filtered.map(c => 
+                    `<div class="autocomplete-item" onclick="selectCandidate('${c}')">${c}</div>`
+                ).join('');
+                list.classList.add('show');
+            } else {
+                list.classList.remove('show');
+            }
+        }
+
+        function showCandidateList() {
+            if (candidates.length > 0) {
+                const list = document.getElementById('candidateList');
+                list.innerHTML = candidates.map(c => 
+                    `<div class="autocomplete-item" onclick="selectCandidate('${c}')">${c}</div>`
+                ).join('');
+                list.classList.add('show');
+            }
+        }
+
+        function selectCandidate(name) {
+            document.getElementById('candidateName').value = name;
+            document.getElementById('candidateList').classList.remove('show');
+        }
+
+        // Hide autocomplete when clicking outside
+        document.addEventListener('click', function(e) {
+            if (!e.target.closest('.autocomplete-wrapper')) {
+                document.getElementById('candidateList').classList.remove('show');
+            }
+        });
+
+        async function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            document.getElementById('fileName').textContent = file.name;
+            
+            try {
+                resumeText = await extractTextFromFile(file);
+            } catch (error) {
+                console.error('Failed to extract text:', error);
+                resumeText = '';
+            }
+        }
+
+        async function extractTextFromFile(file) {
+            const fileName = file.name.toLowerCase();
+            
+            if (fileName.endsWith('.pdf')) {
+                const arrayBuffer = await file.arrayBuffer();
+                const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
+                let text = '';
+                
+                for (let i = 1; i <= pdf.numPages; i++) {
+                    const page = await pdf.getPage(i);
+                    const content = await page.getTextContent();
+                    text += content.items.map(item => item.str).join(' ') + '\n';
+                }
+                return text;
+            } else if (fileName.endsWith('.docx')) {
+                const arrayBuffer = await file.arrayBuffer();
+                const result = await mammoth.extractRawText({arrayBuffer: arrayBuffer});
+                return result.value;
+            }
+            
+            return '';
+        }
+
+        async function saveApplication() {
+            const candidate = document.getElementById('candidateName').value.trim();
+            const company = document.getElementById('company').value.trim();
+            const jobTitle = document.getElementById('jobTitle').value.trim();
+            const jdLink = document.getElementById('jdLink').value.trim();
+            
+            if (!candidate || !company || !jobTitle) {
+                showError('Please fill in Candidate Name, Company, and Job Title');
+                return;
+            }
+            
+            if (!SCRIPT_URL) {
+                showError('Please configure the Google Apps Script URL first');
+                return;
+            }
+            
+            const btn = document.getElementById('saveBtn');
+            btn.disabled = true;
+            btn.textContent = 'Saving...';
+            
+            try {
+                const response = await fetch(SCRIPT_URL, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        candidate: candidate,
+                        company: company,
+                        jobTitle: jobTitle,
+                        jdLink: jdLink,
+                        dateApplied: new Date().toISOString().split('T')[0],
+                        resumeSummary: resumeText.substring(0, 500),
+                        status: 'Applied'
+                    })
+                });
+                
+                // With no-cors, we can't read the response, so assume success
+                showSuccess(`Application saved for ${candidate} at ${company}!`);
+                
+                // Clear form
+                document.getElementById('candidateName').value = '';
+                document.getElementById('company').value = '';
+                document.getElementById('jobTitle').value = '';
+                document.getElementById('jdLink').value = '';
+                document.getElementById('fileName').textContent = '';
+                resumeText = '';
+                
+                // Reload candidates list
+                loadCandidates();
+                
+            } catch (error) {
+                showError('Failed to save: ' + error.message);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Save Application';
+            }
+        }
+
+        async function loadApplications() {
+            if (!SCRIPT_URL) return;
+            
+            const candidate = document.getElementById('filterCandidate').value;
+            const container = document.getElementById('applicationsContainer');
+            container.innerHTML = '<div class="empty-state">Loading...</div>';
+            
+            try {
+                const action = candidate ? `getApplications&candidate=${encodeURIComponent(candidate)}` : 'getAllApplications';
+                const response = await fetch(`${SCRIPT_URL}?action=${action}`);
+                const data = await response.json();
+                
+                if (data.applications && data.applications.length > 0) {
+                    container.innerHTML = `
+                        <table class="applications-table">
+                            <thead>
+                                <tr>
+                                    <th>Candidate</th>
+                                    <th>Company</th>
+                                    <th>Job Title</th>
+                                    <th>Date</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${data.applications.map(app => `
+                                    <tr>
+                                        <td>${app.candidate}</td>
+                                        <td>${app.company}</td>
+                                        <td>
+                                            ${app.jdLink ? `<a href="${app.jdLink}" target="_blank" class="jd-link">${app.jobTitle}</a>` : app.jobTitle}
+                                        </td>
+                                        <td>${app.dateApplied}</td>
+                                        <td><span class="status-badge status-${app.status?.toLowerCase() || 'applied'}">${app.status || 'Applied'}</span></td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    `;
+                } else {
+                    container.innerHTML = '<div class="empty-state">No applications found. Add your first one!</div>';
+                }
+            } catch (error) {
+                container.innerHTML = `<div class="empty-state">Failed to load applications. Make sure the Script URL is correct.</div>`;
+            }
+        }
+
+        function showSuccess(message) {
+            const el = document.getElementById('successMessage');
+            el.textContent = message;
+            el.classList.add('show');
+            setTimeout(() => el.classList.remove('show'), 3000);
+        }
+
+        function showError(message) {
+            const el = document.getElementById('errorMessage');
+            el.textContent = message;
+            el.classList.add('show');
+            setTimeout(() => el.classList.remove('show'), 5000);
+        }
+    </script>
+</body>
+</html>
