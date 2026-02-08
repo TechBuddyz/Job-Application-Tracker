@@ -44,6 +44,10 @@ function doGet(e) {
   
   if (action === 'getCandidates') {
     result = getCandidates();
+  } else if (action === 'getCompanies') {
+    result = getCompanies();
+  } else if (action === 'getJobTitles') {
+    result = getJobTitles();
   } else if (action === 'getApplications') {
     const candidate = e.parameter.candidate;
     result = getApplications(candidate);
@@ -87,6 +91,32 @@ function getCandidates() {
   const candidates = [...new Set(data.slice(1).map(row => row[0]).filter(c => c))];
   
   return { candidates: candidates.sort() };
+}
+
+/**
+ * Get unique list of companies
+ */
+function getCompanies() {
+  const sheet = initSheet();
+  const data = sheet.getDataRange().getValues();
+  
+  // Skip header row, get unique companies (column index 1)
+  const companies = [...new Set(data.slice(1).map(row => row[1]).filter(c => c))];
+  
+  return { companies: companies.sort() };
+}
+
+/**
+ * Get unique list of job titles
+ */
+function getJobTitles() {
+  const sheet = initSheet();
+  const data = sheet.getDataRange().getValues();
+  
+  // Skip header row, get unique job titles (column index 2)
+  const jobTitles = [...new Set(data.slice(1).map(row => row[2]).filter(c => c))];
+  
+  return { jobTitles: jobTitles.sort() };
 }
 
 /**
