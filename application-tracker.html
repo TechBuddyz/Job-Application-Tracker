@@ -562,7 +562,7 @@
                     </div>
                     <div style="display: flex; gap: 8px; align-items: center;">
                         <span class="count-badge" id="appCount">0</span>
-                        <button class="btn btn-export" onclick="downloadExcel()">Export to ZIP</button>
+                        <button class="btn btn-export" onclick="downloadExcel()">📥 Export to ZIP</button>
                     </div>
                 </div>
 
@@ -601,7 +601,8 @@
             const { collection, getDocs, query, orderBy } = await import('https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js');
             const q = query(collection(window.db, COLLECTION_NAME), orderBy('dateApplied', 'desc'));
             const snapshot = await getDocs(q);
-            return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            // IMPORTANT: Put ...doc.data() first, then override id with Firestore doc ID
+            return snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
         }
 
         async function addApplication(app) {
@@ -817,7 +818,6 @@
 
             try {
                 const entry = {
-                    id: Date.now().toString(),
                     candidate,
                     company,
                     jobTitle,
@@ -828,7 +828,8 @@
                     resumeBase64: uploadedResumeBase64 || '',
                     resumeType: uploadedResumeType || '',
                     dateApplied,
-                    status: 'Applied'
+                    status: 'Applied',
+                    timestamp: Date.now()
                 };
                 await addApplication(entry);
                 showSuccess(`Application saved for ${candidate} at ${company}!`);
@@ -865,9 +866,15 @@
         // ============================================
         async function deleteApplication(id) {
             if (!confirm('Delete this application?')) return;
-            await removeApplication(id);
-            await updateFilterDropdown();
-            await renderApplications();
+            try {
+                await removeApplication(id);
+                await updateFilterDropdown();
+                await renderApplications();
+                showSuccess('Application deleted successfully!');
+            } catch (error) {
+                console.error('Delete error:', error);
+                showError('Failed to delete application: ' + error.message);
+            }
         }
 
         // ============================================
