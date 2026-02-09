@@ -406,20 +406,11 @@
         </div>
 
         <div class="card">
-            <div id="setupBox" style="background:#fef3c7;border:1px solid #fcd34d;border-radius:6px;padding:16px;margin-bottom:20px;font-size:0.875rem;color:#92400e;display:none;">
-                <strong>Google Sheets Sync:</strong> Enter your Google Apps Script URL to share history across all users.
-                <div style="display:flex;gap:8px;margin-top:10px;">
-                    <input type="text" id="scriptUrlInput" placeholder="https://script.google.com/macros/s/..." 
-                           style="flex:1;padding:8px;border:1px solid #fcd34d;border-radius:4px;font-size:0.8125rem;">
-                    <button onclick="saveScriptUrl()" style="padding:8px 14px;background:#f59e0b;color:white;border:none;border-radius:4px;cursor:pointer;font-size:0.8125rem;white-space:nowrap;">Save</button>
-                </div>
-            </div>
             <div id="syncStatus" style="display:none;margin-bottom:12px;padding:8px 12px;border-radius:6px;font-size:0.8125rem;"></div>
 
             <div class="tabs">
                 <button class="tab active" onclick="showTab('add')">Add Application</button>
                 <button class="tab" onclick="showTab('history')">View History</button>
-                <button class="tab" onclick="toggleSetup()" style="margin-left:auto;background:none;color:#9ca3af;font-size:0.75rem;">Sync Settings</button>
             </div>
 
             <div id="successMessage" class="success-message"></div>
@@ -643,24 +634,10 @@
         // ============================================
         // Google Sheets Sync (shared history)
         // ============================================
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzk5D_vfUTkA9FjdSfF-MoNUs6i5cVURb0AScwxxJ5CEbX5masddxNwH3Udy9ZK-2H8Uw/exec';
+
         function getScriptUrl() {
-            return localStorage.getItem('tracker_script_url') || '';
-        }
-
-        function saveScriptUrl() {
-            const url = document.getElementById('scriptUrlInput').value.trim();
-            if (url) {
-                localStorage.setItem('tracker_script_url', url);
-                document.getElementById('setupBox').style.display = 'none';
-                showSyncStatus('Google Sheets sync enabled!', 'success');
-                syncFromSheet(); // Load shared data immediately
-            }
-        }
-
-        function toggleSetup() {
-            const box = document.getElementById('setupBox');
-            box.style.display = box.style.display === 'none' ? 'block' : 'none';
-            document.getElementById('scriptUrlInput').value = getScriptUrl();
+            return SCRIPT_URL;
         }
 
         function showSyncStatus(msg, type) {
@@ -672,20 +649,23 @@
             setTimeout(() => { el.style.display = 'none'; }, 3000);
         }
 
-        // POST to Google Sheets (saves data; can't read response with no-cors but data IS sent)
-        async function syncToSheet(appData) {
+        // POST to Google Sheets + Google Drive (saves data; can't read response with no-cors but data IS sent)
+        async function syncToSheet(appData, resumeBase64) {
             const url = getScriptUrl();
             if (!url) return;
             try {
-                // Send without resume binary (can't send to Google Sheets)
+                // Remove local-only binary data, add base64 for Drive upload
                 const { resumeData, ...textData } = appData;
+                if (resumeBase64) {
+                    textData.resumeBase64 = resumeBase64;
+                }
                 await fetch(url, {
                     method: 'POST',
                     mode: 'no-cors',
                     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
                     body: JSON.stringify({ action: 'save', data: textData })
                 });
-                console.log('Synced to Google Sheets');
+                console.log('Synced to Google Sheets + Drive');
             } catch (e) {
                 console.error('Sheet sync failed:', e);
             }
@@ -870,35 +850,49 @@
         let uploadedResumeFileName = '';
         let uploadedResumeBlob = null;
         let uploadedResumeType = '';
+        let uploadedResumeBase64 = '';
 
         function handleResumeUpload(event) {
             const file = event.target.files[0];
             if (file) {
                 uploadedResumeFileName = file.name;
-                uploadedResumeType = file.type;
-                // Store the file as ArrayBuffer for IndexedDB
+                uploadedResumeType = file.type || 'application/pdf';
+                // Store as ArrayBuffer for local IndexedDB
                 file.arrayBuffer().then(buffer => {
                     uploadedResumeBlob = buffer;
+                });
+                // Store as base64 for Google Sheets/Drive sync
+                const reader = new FileReader();
+                reader.onload = function() {
+                    uploadedResumeBase64 = reader.result.split(',')[1]; // remove data:...;base64, prefix
                     document.getElementById('resumeDisplay').textContent = file.name;
                     document.getElementById('resumeDisplay').style.color = '#059669';
-                });
+                };
+                reader.readAsDataURL(file);
             }
         }
 
         function downloadResume(appId) {
             getApplications().then(apps => {
                 const app = apps.find(a => a.id === appId);
-                if (!app || !app.resumeData) {
-                    alert('No resume file stored for this entry.');
+                if (!app) return;
+                // If we have a Drive link (synced), open it
+                if (app.resumeDriveLink) {
+                    window.open(app.resumeDriveLink, '_blank');
                     return;
                 }
-                const blob = new Blob([app.resumeData], { type: app.resumeType || 'application/pdf' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = app.resumeFileName || 'resume.pdf';
-                a.click();
-                URL.revokeObjectURL(url);
+                // Otherwise use local IndexedDB data
+                if (app.resumeData) {
+                    const blob = new Blob([app.resumeData], { type: app.resumeType || 'application/pdf' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = app.resumeFileName || 'resume.pdf';
+                    a.click();
+                    URL.revokeObjectURL(url);
+                    return;
+                }
+                alert('Resume not available. It was uploaded from a different device.');
             });
         }
 
@@ -945,8 +939,8 @@
                     status: 'Applied'
                 };
                 await addApplication(entry);
-                // Sync to Google Sheets (async, don't block UI)
-                syncToSheet(entry);
+                // Sync to Google Sheets + Drive (async, don't block UI)
+                syncToSheet(entry, uploadedResumeBase64);
 
                 showSuccess(`Application saved for ${candidate} at ${company}!`);
 
@@ -963,6 +957,7 @@
                 uploadedResumeFileName = '';
                 uploadedResumeBlob = null;
                 uploadedResumeType = '';
+                uploadedResumeBase64 = '';
                 document.getElementById('resumeDisplay').textContent = 'No file chosen';
                 document.getElementById('resumeDisplay').style.color = '#6b7280';
                 document.getElementById('dateApplied').value = new Date().toISOString().split('T')[0];
@@ -1067,7 +1062,7 @@
                                 <td>${escapeHtml(app.jobTitle)}</td>
                                 <td>${escapeHtml(app.whoApplied || '-')}</td>
                                 <td>${escapeHtml(app.dateApplied || '-')}</td>
-                                <td>${app.resumeData ? `<a href="#" onclick="event.preventDefault(); downloadResume('${app.id}')" class="jd-link">${escapeHtml(app.resumeFileName)}</a>` : escapeHtml(app.resumeFileName || '-')}</td>
+                                <td>${(app.resumeData || app.resumeDriveLink) ? `<a href="#" onclick="event.preventDefault(); downloadResume('${app.id}')" class="jd-link">${escapeHtml(app.resumeFileName)}</a>` : escapeHtml(app.resumeFileName || '-')}</td>
                                 <td>${hasJd ? `<a href="#" onclick="event.preventDefault(); showJdModal('${app.id}')" class="jd-view-link">${jdLabel}</a>` : '-'}</td>
                                 <td>
                                     <select onchange="updateStatus('${app.id}', this.value)" style="padding:3px 6px; font-size:0.75rem; border:1px solid #e5e7eb; border-radius:4px;">
@@ -1198,13 +1193,8 @@
             await openDB();
             await migrateFromLocalStorage();
             await populateWhoApplied();
-            // If Google Sheets is configured, hide setup and sync
-            if (getScriptUrl()) {
-                document.getElementById('setupBox').style.display = 'none';
-                syncFromSheet();
-            } else {
-                document.getElementById('setupBox').style.display = 'block';
-            }
+            // Sync from Google Sheets on load
+            syncFromSheet();
         });
     </script>
 </body>
