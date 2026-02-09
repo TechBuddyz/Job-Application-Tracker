@@ -634,7 +634,7 @@
         // ============================================
         // Google Sheets Sync (shared history)
         // ============================================
-        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzk5D_vfUTkA9FjdSfF-MoNUs6i5cVURb0AScwxxJ5CEbX5masddxNwH3Udy9ZK-2H8Uw/exec';
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxVsaFu-JMplU9QvPoGqOPYf89R6SdbGTTYXB0y7kOM-7kfkVEBXnjxkdOyzazbwZHpaw/exec';
 
         function getScriptUrl() {
             return SCRIPT_URL;
@@ -703,31 +703,51 @@
             }
         }
 
-        // GET all data from Google Sheets (for shared view)
+        // Bidirectional sync: pull from sheet + push local entries not yet in sheet
         async function syncFromSheet() {
             const url = getScriptUrl();
             if (!url) return;
             try {
                 const response = await fetch(`${url}?action=getAll`);
                 const data = await response.json();
-                if (data.applications && Array.isArray(data.applications)) {
-                    // Merge into IndexedDB (add entries we don't have locally)
-                    const localApps = await getApplications();
-                    const localIds = new Set(localApps.map(a => a.id));
-                    let added = 0;
-                    for (const app of data.applications) {
-                        if (app.id && !localIds.has(app.id.toString())) {
-                            app.id = app.id.toString();
-                            try { await addApplication(app); added++; } catch(e) { /* skip */ }
-                        }
-                    }
-                    if (added > 0) {
-                        console.log(`Synced ${added} entries from Google Sheets`);
-                        showSyncStatus(`Synced ${added} new entries from Google Sheets`, 'success');
+                const sheetApps = (data.applications && Array.isArray(data.applications)) ? data.applications : [];
+                const sheetIds = new Set(sheetApps.map(a => a.id ? a.id.toString() : ''));
+
+                // 1. Pull: add sheet entries we don't have locally
+                const localApps = await getApplications();
+                const localIds = new Set(localApps.map(a => a.id));
+                let pulled = 0;
+                for (const app of sheetApps) {
+                    if (app.id && !localIds.has(app.id.toString())) {
+                        app.id = app.id.toString();
+                        try { await addApplication(app); pulled++; } catch(e) { /* skip */ }
                     }
                 }
+
+                // 2. Push: send local entries that aren't in the sheet yet
+                let pushed = 0;
+                for (const app of localApps) {
+                    if (!sheetIds.has(app.id)) {
+                        const { resumeData, ...textData } = app;
+                        try {
+                            await fetch(url, {
+                                method: 'POST',
+                                mode: 'no-cors',
+                                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                                body: JSON.stringify({ action: 'save', data: textData })
+                            });
+                            pushed++;
+                        } catch(e) { /* skip */ }
+                    }
+                }
+
+                if (pulled > 0 || pushed > 0) {
+                    console.log(`Sync: pulled ${pulled}, pushed ${pushed}`);
+                    showSyncStatus(`Synced: ${pulled} pulled, ${pushed} pushed to Google Sheets`, 'success');
+                }
             } catch (e) {
-                console.error('Failed to load from Google Sheets:', e);
+                console.error('Failed to sync with Google Sheets:', e);
+                showSyncStatus('Sync failed - check console', 'error');
             }
         }
 
@@ -1193,8 +1213,10 @@
             await openDB();
             await migrateFromLocalStorage();
             await populateWhoApplied();
-            // Sync from Google Sheets on load
-            syncFromSheet();
+            // Bidirectional sync with Google Sheets on load
+            syncFromSheet().then(() => {
+                populateWhoApplied();
+            });
         });
     </script>
 </body>
