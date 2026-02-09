@@ -431,47 +431,121 @@
 
     <script>
         // ============================================
-        // Data stored in localStorage
+        // IndexedDB Storage (supports GBs of data)
         // ============================================
-        const STORAGE_KEY = 'job_applications';
+        const DB_NAME = 'JobApplicationTracker';
+        const DB_VERSION = 1;
+        const STORE_NAME = 'applications';
+        let db = null;
 
-        function getApplications() {
-            try {
-                return JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
-            } catch (e) {
-                return [];
-            }
+        function openDB() {
+            return new Promise((resolve, reject) => {
+                if (db) { resolve(db); return; }
+                const request = indexedDB.open(DB_NAME, DB_VERSION);
+                request.onupgradeneeded = function(e) {
+                    const database = e.target.result;
+                    if (!database.objectStoreNames.contains(STORE_NAME)) {
+                        const store = database.createObjectStore(STORE_NAME, { keyPath: 'id' });
+                        store.createIndex('candidate', 'candidate', { unique: false });
+                        store.createIndex('company', 'company', { unique: false });
+                        store.createIndex('dateApplied', 'dateApplied', { unique: false });
+                    }
+                };
+                request.onsuccess = function(e) {
+                    db = e.target.result;
+                    resolve(db);
+                };
+                request.onerror = function(e) {
+                    reject(e.target.error);
+                };
+            });
         }
 
-        function saveApplications(apps) {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(apps));
+        async function getApplications() {
+            const database = await openDB();
+            return new Promise((resolve, reject) => {
+                const tx = database.transaction(STORE_NAME, 'readonly');
+                const store = tx.objectStore(STORE_NAME);
+                const request = store.getAll();
+                request.onsuccess = () => resolve(request.result || []);
+                request.onerror = () => reject(request.error);
+            });
         }
 
-        // Derive unique lists from saved data
-        function getUniqueValues(field) {
-            const apps = getApplications();
+        async function addApplication(app) {
+            const database = await openDB();
+            return new Promise((resolve, reject) => {
+                const tx = database.transaction(STORE_NAME, 'readwrite');
+                const store = tx.objectStore(STORE_NAME);
+                const request = store.add(app);
+                request.onsuccess = () => resolve();
+                request.onerror = () => reject(request.error);
+            });
+        }
+
+        async function updateApplication(app) {
+            const database = await openDB();
+            return new Promise((resolve, reject) => {
+                const tx = database.transaction(STORE_NAME, 'readwrite');
+                const store = tx.objectStore(STORE_NAME);
+                const request = store.put(app);
+                request.onsuccess = () => resolve();
+                request.onerror = () => reject(request.error);
+            });
+        }
+
+        async function removeApplication(id) {
+            const database = await openDB();
+            return new Promise((resolve, reject) => {
+                const tx = database.transaction(STORE_NAME, 'readwrite');
+                const store = tx.objectStore(STORE_NAME);
+                const request = store.delete(id);
+                request.onsuccess = () => resolve();
+                request.onerror = () => reject(request.error);
+            });
+        }
+
+        async function getUniqueValues(field) {
+            const apps = await getApplications();
             return [...new Set(apps.map(a => a[field]).filter(Boolean))].sort();
         }
 
+        // Migrate any existing localStorage data to IndexedDB
+        async function migrateFromLocalStorage() {
+            try {
+                const old = localStorage.getItem('job_applications');
+                if (!old) return;
+                const apps = JSON.parse(old);
+                if (!Array.isArray(apps) || apps.length === 0) return;
+                for (const app of apps) {
+                    try { await addApplication(app); } catch(e) { /* skip duplicates */ }
+                }
+                localStorage.removeItem('job_applications');
+                console.log(`Migrated ${apps.length} entries from localStorage to IndexedDB`);
+            } catch(e) {
+                console.error('Migration error:', e);
+            }
+        }
+
         // ============================================
-        // Autocomplete helpers (generic)
+        // Autocomplete helpers (generic, async)
         // ============================================
-        const autocompleteSources = {
-            candidates: () => getUniqueValues('candidate'),
-            companies: () => getUniqueValues('company'),
-            jobTitles: () => getUniqueValues('jobTitle')
+        const fieldMap = {
+            candidates: 'candidate',
+            companies: 'company',
+            jobTitles: 'jobTitle'
         };
 
-        function filterAutocomplete(inputId, listId, sourceKey) {
+        async function filterAutocomplete(inputId, listId, sourceKey) {
             const input = document.getElementById(inputId).value.toLowerCase();
             const list = document.getElementById(listId);
-            const items = autocompleteSources[sourceKey]();
 
             if (!input) {
                 list.classList.remove('show');
                 return;
             }
 
+            const items = await getUniqueValues(fieldMap[sourceKey]);
             const filtered = items.filter(c => c.toLowerCase().includes(input));
             if (filtered.length > 0) {
                 list.innerHTML = filtered.map(c =>
@@ -483,8 +557,8 @@
             }
         }
 
-        function showAutocompleteList(inputId, listId, sourceKey) {
-            const items = autocompleteSources[sourceKey]();
+        async function showAutocompleteList(inputId, listId, sourceKey) {
+            const items = await getUniqueValues(fieldMap[sourceKey]);
             const list = document.getElementById(listId);
             if (items.length > 0) {
                 list.innerHTML = items.map(c =>
@@ -547,7 +621,7 @@
         // ============================================
         // Save Application
         // ============================================
-        function saveApplication() {
+        async function saveApplication() {
             const candidate = document.getElementById('candidateName').value.trim();
             const company = document.getElementById('company').value.trim();
             const jobTitle = document.getElementById('jobTitle').value.trim();
@@ -566,67 +640,75 @@
                 return;
             }
 
-            const apps = getApplications();
-            apps.push({
-                id: Date.now().toString(),
-                candidate,
-                company,
-                jobTitle,
-                whoApplied,
-                jdLink,
-                jobDescription,
-                resumeFileName,
-                dateApplied,
-                status: 'Applied'
-            });
-            saveApplications(apps);
+            const btn = document.getElementById('saveBtn');
+            btn.disabled = true;
+            btn.textContent = 'Saving...';
 
-            showSuccess(`Application saved for ${candidate} at ${company}!`);
+            try {
+                await addApplication({
+                    id: Date.now().toString(),
+                    candidate,
+                    company,
+                    jobTitle,
+                    whoApplied,
+                    jdLink,
+                    jobDescription,
+                    resumeFileName,
+                    dateApplied,
+                    status: 'Applied'
+                });
 
-            // Clear form
-            document.getElementById('candidateName').value = '';
-            document.getElementById('company').value = '';
-            document.getElementById('jobTitle').value = '';
-            document.getElementById('whoApplied').value = '';
-            document.getElementById('newPersonName').value = '';
-            document.getElementById('newPersonName').style.display = 'none';
-            document.getElementById('jdLink').value = '';
-            document.getElementById('jobDescription').value = '';
-            document.getElementById('resumeFileName').value = '';
-            document.getElementById('dateApplied').value = new Date().toISOString().split('T')[0];
+                showSuccess(`Application saved for ${candidate} at ${company}!`);
+
+                // Clear form
+                document.getElementById('candidateName').value = '';
+                document.getElementById('company').value = '';
+                document.getElementById('jobTitle').value = '';
+                document.getElementById('whoApplied').value = '';
+                document.getElementById('newPersonName').value = '';
+                document.getElementById('newPersonName').style.display = 'none';
+                document.getElementById('jdLink').value = '';
+                document.getElementById('jobDescription').value = '';
+                document.getElementById('resumeFileName').value = '';
+                document.getElementById('dateApplied').value = new Date().toISOString().split('T')[0];
+            } catch (error) {
+                showError('Failed to save: ' + error.message);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Save Application';
+            }
         }
 
         // ============================================
         // Delete Application
         // ============================================
-        function deleteApplication(id) {
+        async function deleteApplication(id) {
             if (!confirm('Delete this application?')) return;
-            const apps = getApplications().filter(a => a.id !== id);
-            saveApplications(apps);
-            updateFilterDropdown();
-            renderApplications();
+            await removeApplication(id);
+            await updateFilterDropdown();
+            await renderApplications();
         }
 
         // ============================================
         // Update Status
         // ============================================
-        function updateStatus(id, newStatus) {
-            const apps = getApplications();
+        async function updateStatus(id, newStatus) {
+            const apps = await getApplications();
             const app = apps.find(a => a.id === id);
             if (app) {
                 app.status = newStatus;
-                saveApplications(apps);
-                renderApplications();
+                await updateApplication(app);
+                await renderApplications();
             }
         }
 
         // ============================================
         // Render History
         // ============================================
-        function updateFilterDropdown() {
+        async function updateFilterDropdown() {
             const select = document.getElementById('filterCandidate');
             const current = select.value;
-            const candidates = getUniqueValues('candidate');
+            const candidates = await getUniqueValues('candidate');
             select.innerHTML = '<option value="">All Candidates</option>';
             candidates.forEach(c => {
                 select.innerHTML += `<option value="${c}">${c}</option>`;
@@ -634,9 +716,9 @@
             select.value = current;
         }
 
-        function renderApplications() {
+        async function renderApplications() {
             const filter = document.getElementById('filterCandidate').value;
-            let apps = getApplications();
+            let apps = await getApplications();
             if (filter) {
                 apps = apps.filter(a => a.candidate === filter);
             }
@@ -698,8 +780,8 @@
         // ============================================
         // Download as Excel (CSV that Excel opens)
         // ============================================
-        function downloadExcel() {
-            const apps = getApplications();
+        async function downloadExcel() {
+            const apps = await getApplications();
             if (apps.length === 0) {
                 showError('No applications to export');
                 return;
@@ -764,8 +846,10 @@
         // ============================================
         // Init
         // ============================================
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', async function() {
             document.getElementById('dateApplied').value = new Date().toISOString().split('T')[0];
+            await openDB();
+            await migrateFromLocalStorage();
         });
     </script>
 </body>
