@@ -562,7 +562,7 @@
                     </div>
                     <div style="display: flex; gap: 8px; align-items: center;">
                         <span class="count-badge" id="appCount">0</span>
-                        <button class="btn btn-export" onclick="downloadExcel()">Download Excel</button>
+                        <button class="btn btn-export" onclick="downloadExcel()">Export to ZIP</button>
                     </div>
                 </div>
 
@@ -897,7 +897,8 @@
             select.value = current;
         }
 
-        async function renderApplications() {
+        // Get filtered applications based on current filter settings
+        async function getFilteredApplications() {
             const filter = document.getElementById('filterCandidate').value;
             const dateFrom = document.getElementById('filterDateFrom').value;
             const dateTo = document.getElementById('filterDateTo').value;
@@ -913,6 +914,11 @@
             }
             // Sort newest first
             apps.sort((a, b) => (b.dateApplied || '').localeCompare(a.dateApplied || ''));
+            return apps;
+        }
+
+        async function renderApplications() {
+            const apps = await getFilteredApplications();
 
             document.getElementById('appCount').textContent = `${apps.length} application${apps.length !== 1 ? 's' : ''}`;
 
@@ -1007,9 +1013,10 @@
         // Download as Excel (CSV that Excel opens)
         // ============================================
         async function downloadExcel() {
-            const apps = await getApplications();
+            // Use filtered applications instead of all applications
+            const apps = await getFilteredApplications();
             if (apps.length === 0) {
-                showError('No applications to export');
+                showError('No applications to export (check your filters)');
                 return;
             }
 
@@ -1093,7 +1100,12 @@
                 link.click();
                 URL.revokeObjectURL(url);
 
-                showSuccess(`✓ Downloaded ${folderName}.zip with ${apps.length} applications and ${resumeFiles.length} resumes!`);
+                // Check if filters are active
+                const isFiltered = document.getElementById('filterCandidate').value || 
+                                   document.getElementById('filterDateFrom').value || 
+                                   document.getElementById('filterDateTo').value;
+                const filterText = isFiltered ? ' (filtered)' : '';
+                showSuccess(`✓ Downloaded ${folderName}.zip with ${apps.length} application${apps.length !== 1 ? 's' : ''}${filterText} and ${resumeFiles.length} resume${resumeFiles.length !== 1 ? 's' : ''}!`);
             } catch (e) {
                 console.error('Failed to create ZIP:', e);
                 showError('Failed to create ZIP file. Please try again.');
