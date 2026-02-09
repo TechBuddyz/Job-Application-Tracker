@@ -307,6 +307,78 @@
             font-weight: 500;
         }
 
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-overlay.show {
+            display: flex;
+        }
+
+        .modal {
+            background: white;
+            border-radius: 8px;
+            max-width: 700px;
+            width: 90%;
+            max-height: 80vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 20px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .modal-header h3 {
+            font-size: 0.9375rem;
+            font-weight: 600;
+            color: #1f2937;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 1.25rem;
+            cursor: pointer;
+            color: #6b7280;
+            padding: 4px 8px;
+        }
+
+        .modal-close:hover {
+            color: #1f2937;
+        }
+
+        .modal-body {
+            padding: 20px;
+            overflow-y: auto;
+            font-size: 0.8125rem;
+            color: #374151;
+            line-height: 1.6;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        .jd-view-link {
+            color: #6366f1;
+            text-decoration: none;
+            cursor: pointer;
+            font-size: 0.75rem;
+        }
+
+        .jd-view-link:hover {
+            text-decoration: underline;
+        }
+
         @media (max-width: 640px) {
             .form-row {
                 grid-template-columns: 1fr;
@@ -374,9 +446,6 @@
                         <label>Who Applied</label>
                         <select id="whoApplied" onchange="handleWhoAppliedChange()">
                             <option value="">Select person</option>
-                            <option value="Priyanka">Priyanka</option>
-                            <option value="Prabhu">Prabhu</option>
-                            <option value="Sanu">Sanu</option>
                             <option value="__new__">+ Add New Person</option>
                         </select>
                         <input type="text" id="newPersonName" placeholder="Enter name..." style="display: none; margin-top: 8px;">
@@ -423,9 +492,10 @@
                             <option value="">All Candidates</option>
                         </select>
                     </div>
-                    <div style="display: flex; gap: 8px; align-items: center;">
+                    <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
                         <span class="count-badge" id="appCount">0 applications</span>
                         <button class="btn btn-export" onclick="downloadExcel()">Download Excel</button>
+                        <button class="btn btn-export" style="background:#6366f1;" onclick="downloadAllResumes()">Download Resumes</button>
                     </div>
                 </div>
 
@@ -433,6 +503,17 @@
                     <div class="empty-state">No applications yet. Add your first one!</div>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <!-- JD Modal -->
+    <div class="modal-overlay" id="jdModal" onclick="if(event.target===this)closeJdModal()">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 id="jdModalTitle">Job Description</h3>
+                <button class="modal-close" onclick="closeJdModal()">&times;</button>
+            </div>
+            <div class="modal-body" id="jdModalBody"></div>
         </div>
     </div>
 
@@ -588,8 +669,25 @@
         });
 
         // ============================================
-        // Who Applied
+        // Who Applied (dynamic dropdown)
         // ============================================
+        const DEFAULT_PERSONS = ['Priyanka', 'Prabhu', 'Sanu'];
+
+        async function populateWhoApplied() {
+            const select = document.getElementById('whoApplied');
+            const current = select.value;
+            const savedPersons = await getUniqueValues('whoApplied');
+            // Merge defaults + any new persons from saved data
+            const allPersons = [...new Set([...DEFAULT_PERSONS, ...savedPersons])].sort();
+
+            select.innerHTML = '<option value="">Select person</option>';
+            allPersons.forEach(p => {
+                select.innerHTML += `<option value="${escapeHtml(p)}">${escapeHtml(p)}</option>`;
+            });
+            select.innerHTML += '<option value="__new__">+ Add New Person</option>';
+            select.value = current;
+        }
+
         function handleWhoAppliedChange() {
             const select = document.getElementById('whoApplied');
             const newPersonInput = document.getElementById('newPersonName');
@@ -725,6 +823,9 @@
                 document.getElementById('resumeDisplay').textContent = 'No file chosen';
                 document.getElementById('resumeDisplay').style.color = '#6b7280';
                 document.getElementById('dateApplied').value = new Date().toISOString().split('T')[0];
+
+                // Refresh Who Applied dropdown with new person
+                await populateWhoApplied();
             } catch (error) {
                 showError('Failed to save: ' + error.message);
             } finally {
@@ -797,19 +898,24 @@
                             <th>Applied By</th>
                             <th>Date</th>
                             <th>Resume</th>
+                            <th>JD</th>
                             <th>Status</th>
                             <th></th>
                         </tr>
                     </thead>
                     <tbody>
-                        ${apps.map(app => `
+                        ${apps.map(app => {
+                            const hasJd = app.jobDescription || app.jdLink;
+                            const jdLabel = app.jdLink && app.jobDescription ? 'View' : (app.jobDescription ? 'View' : (app.jdLink ? 'Link' : '-'));
+                            return `
                             <tr>
                                 <td>${escapeHtml(app.candidate)}</td>
                                 <td>${escapeHtml(app.company)}</td>
-                                <td>${app.jdLink ? `<a href="${escapeHtml(app.jdLink)}" target="_blank" class="jd-link">${escapeHtml(app.jobTitle)}</a>` : escapeHtml(app.jobTitle)}</td>
+                                <td>${escapeHtml(app.jobTitle)}</td>
                                 <td>${escapeHtml(app.whoApplied || '-')}</td>
                                 <td>${escapeHtml(app.dateApplied || '-')}</td>
                                 <td>${app.resumeData ? `<a href="#" onclick="event.preventDefault(); downloadResume('${app.id}')" class="jd-link">${escapeHtml(app.resumeFileName)}</a>` : escapeHtml(app.resumeFileName || '-')}</td>
+                                <td>${hasJd ? `<a href="#" onclick="event.preventDefault(); showJdModal('${app.id}')" class="jd-view-link">${jdLabel}</a>` : '-'}</td>
                                 <td>
                                     <select onchange="updateStatus('${app.id}', this.value)" style="padding:3px 6px; font-size:0.75rem; border:1px solid #e5e7eb; border-radius:4px;">
                                         <option value="Applied" ${app.status === 'Applied' ? 'selected' : ''}>Applied</option>
@@ -819,8 +925,8 @@
                                     </select>
                                 </td>
                                 <td><button class="btn-delete" onclick="deleteApplication('${app.id}')">Delete</button></td>
-                            </tr>
-                        `).join('')}
+                            </tr>`;
+                        }).join('')}
                     </tbody>
                 </table>
             `;
@@ -830,6 +936,38 @@
             if (!str) return '';
             return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
         }
+
+        // ============================================
+        // JD Modal
+        // ============================================
+        async function showJdModal(appId) {
+            const apps = await getApplications();
+            const app = apps.find(a => a.id === appId);
+            if (!app) return;
+
+            const title = `${app.jobTitle} - ${app.company}`;
+            document.getElementById('jdModalTitle').textContent = title;
+
+            let body = '';
+            if (app.jdLink) {
+                body += `<div style="margin-bottom:12px;"><strong>JD Link:</strong> <a href="${escapeHtml(app.jdLink)}" target="_blank" class="jd-link">${escapeHtml(app.jdLink)}</a></div>`;
+            }
+            if (app.jobDescription) {
+                if (app.jdLink) body += '<hr style="border:none;border-top:1px solid #e5e7eb;margin:12px 0;">';
+                body += escapeHtml(app.jobDescription);
+            }
+            document.getElementById('jdModalBody').innerHTML = body;
+            document.getElementById('jdModal').classList.add('show');
+        }
+
+        function closeJdModal() {
+            document.getElementById('jdModal').classList.remove('show');
+        }
+
+        // Close modal on Escape key
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') closeJdModal();
+        });
 
         // ============================================
         // Download as Excel (CSV that Excel opens)
@@ -880,6 +1018,29 @@
             return val;
         }
 
+        async function downloadAllResumes() {
+            const apps = await getApplications();
+            const withResume = apps.filter(a => a.resumeData && a.resumeFileName);
+            if (withResume.length === 0) {
+                showError('No resumes stored to download');
+                return;
+            }
+            // Download each resume with a clear name: Candidate_Company_ResumeFileName
+            for (const app of withResume) {
+                const prefix = `${app.candidate}_${app.company}_`.replace(/[^a-zA-Z0-9_]/g, '_');
+                const blob = new Blob([app.resumeData], { type: app.resumeType || 'application/pdf' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = prefix + app.resumeFileName;
+                a.click();
+                URL.revokeObjectURL(url);
+                // Small delay between downloads so browser doesn't block them
+                await new Promise(r => setTimeout(r, 300));
+            }
+            showSuccess(`${withResume.length} resume(s) downloaded!`);
+        }
+
         // ============================================
         // Messages
         // ============================================
@@ -904,6 +1065,7 @@
             document.getElementById('dateApplied').value = new Date().toISOString().split('T')[0];
             await openDB();
             await migrateFromLocalStorage();
+            await populateWhoApplied();
         });
     </script>
 </body>
