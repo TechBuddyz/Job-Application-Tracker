@@ -709,7 +709,6 @@
         // Save Application
         // ============================================
         let uploadedResumeFileName = '';
-        let uploadedResumeBlob = null;
         let uploadedResumeType = '';
         let uploadedResumeBase64 = '';
 
@@ -718,11 +717,7 @@
             if (file) {
                 uploadedResumeFileName = file.name;
                 uploadedResumeType = file.type || 'application/pdf';
-                // Store as ArrayBuffer for local IndexedDB
-                file.arrayBuffer().then(buffer => {
-                    uploadedResumeBlob = buffer;
-                });
-                // Store as base64 for Google Sheets/Drive sync
+                // Convert to base64 for Firebase Firestore storage
                 const reader = new FileReader();
                 reader.onload = function() {
                     uploadedResumeBase64 = reader.result.split(',')[1]; // remove data:...;base64, prefix
@@ -817,7 +812,6 @@
                 document.getElementById('jobDescription').value = '';
                 document.getElementById('resumeFile').value = '';
                 uploadedResumeFileName = '';
-                uploadedResumeBlob = null;
                 uploadedResumeType = '';
                 uploadedResumeBase64 = '';
                 document.getElementById('resumeDisplay').textContent = 'No file chosen';
@@ -922,7 +916,7 @@
                                 <td>${escapeHtml(app.jobTitle)}</td>
                                 <td>${escapeHtml(app.whoApplied || '-')}</td>
                                 <td>${escapeHtml(app.dateApplied || '-')}</td>
-                                <td>${(app.resumeData || app.resumeDriveLink) ? `<a href="#" onclick="event.preventDefault(); downloadResume('${app.id}')" class="jd-link">${escapeHtml(app.resumeFileName)}</a>` : escapeHtml(app.resumeFileName || '-')}</td>
+                                <td>${app.resumeBase64 ? `<a href="#" onclick="event.preventDefault(); downloadResume('${app.id}')" class="jd-link">${escapeHtml(app.resumeFileName)}</a>` : escapeHtml(app.resumeFileName || '-')}</td>
                                 <td>${hasJd ? `<a href="#" onclick="event.preventDefault(); showJdModal('${app.id}')" class="jd-view-link">${jdLabel}</a>` : '-'}</td>
                                 <td>
                                     <select onchange="updateStatus('${app.id}', this.value)" style="padding:3px 6px; font-size:0.75rem; border:1px solid #e5e7eb; border-radius:4px;">
