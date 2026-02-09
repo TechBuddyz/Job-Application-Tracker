@@ -400,8 +400,15 @@
                 </div>
 
                 <div class="form-group">
-                    <label>Resume File Name</label>
-                    <input type="text" id="resumeFileName" placeholder="e.g., Pragnya_Resume_v2.pdf">
+                    <label>Resume</label>
+                    <div style="display: flex; gap: 10px; align-items: center;">
+                        <button type="button" onclick="document.getElementById('resumeFile').click()" 
+                                style="padding: 10px 16px; background: #f3f4f6; border: 1px solid #e5e7eb; border-radius: 6px; cursor: pointer; font-size: 0.875rem; color: #374151; white-space: nowrap;">
+                            Choose File
+                        </button>
+                        <input type="file" id="resumeFile" accept=".pdf,.docx,.doc" onchange="handleResumeUpload(event)" style="display: none;">
+                        <span id="resumeDisplay" style="font-size: 0.875rem; color: #6b7280;">No file chosen</span>
+                    </div>
                 </div>
 
                 <button class="btn" id="saveBtn" onclick="saveApplication()">Save Application</button>
@@ -621,6 +628,17 @@
         // ============================================
         // Save Application
         // ============================================
+        let uploadedResumeFileName = '';
+
+        function handleResumeUpload(event) {
+            const file = event.target.files[0];
+            if (file) {
+                uploadedResumeFileName = file.name;
+                document.getElementById('resumeDisplay').textContent = file.name;
+                document.getElementById('resumeDisplay').style.color = '#059669';
+            }
+        }
+
         async function saveApplication() {
             const candidate = document.getElementById('candidateName').value.trim();
             const company = document.getElementById('company').value.trim();
@@ -628,7 +646,7 @@
             const whoApplied = getWhoApplied();
             const jdLink = document.getElementById('jdLink').value.trim();
             const jobDescription = document.getElementById('jobDescription').value.trim();
-            const resumeFileName = document.getElementById('resumeFileName').value.trim();
+            const resumeFileName = uploadedResumeFileName;
             const dateApplied = document.getElementById('dateApplied').value || new Date().toISOString().split('T')[0];
 
             if (!candidate || !company || !jobTitle) {
@@ -637,6 +655,10 @@
             }
             if (!whoApplied) {
                 showError('Please select or enter who applied');
+                return;
+            }
+            if (!jdLink && !jobDescription) {
+                showError('Please provide at least a JD Link or paste the Job Description');
                 return;
             }
 
@@ -669,7 +691,10 @@
                 document.getElementById('newPersonName').style.display = 'none';
                 document.getElementById('jdLink').value = '';
                 document.getElementById('jobDescription').value = '';
-                document.getElementById('resumeFileName').value = '';
+                document.getElementById('resumeFile').value = '';
+                uploadedResumeFileName = '';
+                document.getElementById('resumeDisplay').textContent = 'No file chosen';
+                document.getElementById('resumeDisplay').style.color = '#6b7280';
                 document.getElementById('dateApplied').value = new Date().toISOString().split('T')[0];
             } catch (error) {
                 showError('Failed to save: ' + error.message);
