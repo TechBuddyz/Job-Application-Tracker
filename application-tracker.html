@@ -634,7 +634,7 @@
         // ============================================
         // Google Sheets Sync (shared history)
         // ============================================
-        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzzYktUUZbsoB7nrwR0zTcXgDtiJ9_2Ex6pcqPNZrzCVHEwIqrquqD6yjCTmQvPT5N8cw/exec';
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyxfIYBSu-lGaeMHy0BT4-lYyUjuF666ytuU_Vfn5YWtVfzDwjVYojz4V9I7PUWzWOuTg/exec';
 
         function getScriptUrl() {
             return SCRIPT_URL;
@@ -706,29 +706,70 @@
         // Bidirectional sync: pull from sheet + push local entries not yet in sheet
         async function syncFromSheet() {
             const url = getScriptUrl();
+            console.log('🔄 Starting sync. URL:', url);
             if (!url) return;
             try {
                 const response = await fetch(`${url}?action=getAll`);
                 const data = await response.json();
+                console.log('📥 Received from sheet:', data.applications ? data.applications.length : 0, 'entries');
                 const sheetApps = (data.applications && Array.isArray(data.applications)) ? data.applications : [];
                 const sheetIds = new Set(sheetApps.map(a => a.id ? a.id.toString() : ''));
 
-                // 1. Pull: add sheet entries we don't have locally
+                // 1. Pull: add sheet entries we don't have locally, or update if Drive link is missing
                 const localApps = await getApplications();
                 const localIds = new Set(localApps.map(a => a.id));
                 let pulled = 0;
-                for (const app of sheetApps) {
-                    if (app.id && !localIds.has(app.id.toString())) {
-                        app.id = app.id.toString();
-                        try { await addApplication(app); pulled++; } catch(e) { /* skip */ }
+                let updated = 0;
+                for (const sheetApp of sheetApps) {
+                    if (!sheetApp.id) continue;
+                    sheetApp.id = sheetApp.id.toString();
+                    
+                    if (!localIds.has(sheetApp.id)) {
+                        // New entry from sheet
+                        try { await addApplication(sheetApp); pulled++; } catch(e) { /* skip */ }
+                    } else if (sheetApp.resumeDriveLink) {
+                        // Entry exists locally - check if we need to update Drive link
+                        const localApp = localApps.find(a => a.id === sheetApp.id);
+                        if (localApp && !localApp.resumeDriveLink) {
+                            localApp.resumeDriveLink = sheetApp.resumeDriveLink;
+                            try { await updateApplication(localApp); updated++; } catch(e) { /* skip */ }
+                        }
                     }
                 }
 
                 // 2. Push: send local entries that aren't in the sheet yet
                 let pushed = 0;
+                // #region agent log
+                fetch('http://127.0.0.1:7243/ingest/a78f26a1-3a45-433e-b418-5e172aa79c2a',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'application-tracker.html:740',message:'Starting push phase',data:{localAppCount:localApps.length,sheetIdsCount:sheetIds.size},timestamp:Date.now(),hypothesisId:'A',runId:'debug1'})}).catch(()=>{});
+                // #endregion
                 for (const app of localApps) {
                     if (!sheetIds.has(app.id)) {
                         const { resumeData, ...textData } = app;
+                        // #region agent log
+                        fetch('http://127.0.0.1:7243/ingest/a78f26a1-3a45-433e-b418-5e172aa79c2a',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'application-tracker.html:744',message:'Entry to push',data:{appId:app.id,hasResumeData:!!resumeData,resumeDataType:resumeData?resumeData.constructor.name:'null',resumeFileName:app.resumeFileName,candidate:app.candidate,company:app.company},timestamp:Date.now(),hypothesisId:'A',runId:'debug1'})}).catch(()=>{});
+                        // #endregion
+                        // Convert ArrayBuffer to base64 if resume exists
+                        if (resumeData && app.resumeFileName) {
+                            try {
+                                const uint8 = new Uint8Array(resumeData);
+                                // #region agent log
+                                fetch('http://127.0.0.1:7243/ingest/a78f26a1-3a45-433e-b418-5e172aa79c2a',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'application-tracker.html:752',message:'ArrayBuffer conversion',data:{uint8Length:uint8.length,appId:app.id},timestamp:Date.now(),hypothesisId:'B',runId:'debug1'})}).catch(()=>{});
+                                // #endregion
+                                const binary = uint8.reduce((acc, byte) => acc + String.fromCharCode(byte), '');
+                                textData.resumeBase64 = btoa(binary);
+                                // #region agent log
+                                fetch('http://127.0.0.1:7243/ingest/a78f26a1-3a45-433e-b418-5e172aa79c2a',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'application-tracker.html:758',message:'Base64 conversion success',data:{base64Length:textData.resumeBase64.length,appId:app.id},timestamp:Date.now(),hypothesisId:'B',runId:'debug1'})}).catch(()=>{});
+                                // #endregion
+                            } catch(e) {
+                                // #region agent log
+                                fetch('http://127.0.0.1:7243/ingest/a78f26a1-3a45-433e-b418-5e172aa79c2a',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'application-tracker.html:763',message:'Base64 conversion ERROR',data:{error:e.message,appId:app.id},timestamp:Date.now(),hypothesisId:'B',runId:'debug1'})}).catch(()=>{});
+                                // #endregion
+                                console.error('Failed to convert resume to base64:', e);
+                            }
+                        }
+                        // #region agent log
+                        fetch('http://127.0.0.1:7243/ingest/a78f26a1-3a45-433e-b418-5e172aa79c2a',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'application-tracker.html:770',message:'Sending to Apps Script',data:{hasResumeBase64:!!textData.resumeBase64,resumeBase64Length:textData.resumeBase64?textData.resumeBase64.length:0,payloadKeys:Object.keys(textData),appId:app.id},timestamp:Date.now(),hypothesisId:'C',runId:'debug1'})}).catch(()=>{});
+                        // #endregion
                         try {
                             await fetch(url, {
                                 method: 'POST',
@@ -737,13 +778,39 @@
                                 body: JSON.stringify({ action: 'save', data: textData })
                             });
                             pushed++;
-                        } catch(e) { /* skip */ }
+                        } catch(e) { 
+                            console.error('Push failed for entry:', app.id, e);
+                        }
+                    }
+                }
+                // #region agent log
+                fetch('http://127.0.0.1:7243/ingest/a78f26a1-3a45-433e-b418-5e172aa79c2a',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'application-tracker.html:786',message:'Push phase complete',data:{pushedCount:pushed},timestamp:Date.now(),hypothesisId:'A',runId:'debug1'})}).catch(()=>{});
+                // #endregion
+
+                // 3. If we pushed entries, wait a bit then pull again to get Drive links
+                if (pushed > 0) {
+                    await new Promise(r => setTimeout(r, 3000)); // Wait 3s for Drive upload to complete
+                    // Re-run the pull logic to update with Drive links
+                    const response2 = await fetch(`${url}?action=getAll`);
+                    const data2 = await response2.json();
+                    if (data2.applications && Array.isArray(data2.applications)) {
+                        const localApps2 = await getApplications();
+                        for (const sheetApp of data2.applications) {
+                            if (sheetApp.resumeDriveLink) {
+                                const localApp = localApps2.find(a => a.id === sheetApp.id);
+                                if (localApp && !localApp.resumeDriveLink) {
+                                    localApp.resumeDriveLink = sheetApp.resumeDriveLink;
+                                    await updateApplication(localApp);
+                                    updated++;
+                                }
+                            }
+                        }
                     }
                 }
 
-                if (pulled > 0 || pushed > 0) {
-                    console.log(`Sync: pulled ${pulled}, pushed ${pushed}`);
-                    showSyncStatus(`Synced: ${pulled} pulled, ${pushed} pushed to Google Sheets`, 'success');
+                if (pulled > 0 || pushed > 0 || updated > 0) {
+                    console.log(`Sync: pulled ${pulled}, pushed ${pushed}, updated ${updated}`);
+                    showSyncStatus(`Synced: ${pulled} new, ${pushed} pushed, ${updated} updated`, 'success');
                 }
             } catch (e) {
                 console.error('Failed to sync with Google Sheets:', e);
