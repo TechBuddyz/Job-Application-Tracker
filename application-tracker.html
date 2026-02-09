@@ -8,6 +8,9 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
     
+    <!-- JSZip for creating ZIP files -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    
     <!-- Firebase SDK -->
     <script type="module">
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js';
@@ -1013,7 +1016,13 @@
             const timestamp = new Date().toISOString().split('T')[0];
             const folderName = `Job_Applications_${timestamp}`;
 
-            // First, download all resumes as individual files
+            // Show loading message
+            showSuccess('Creating ZIP file... Please wait');
+
+            // Create a new JSZip instance
+            const zip = new JSZip();
+
+            // Process all resumes and add them to ZIP
             const resumeFiles = [];
             for (const app of apps) {
                 if (app.resumeBase64 && app.resumeFileName) {
@@ -1023,11 +1032,13 @@
                         for (let i = 0; i < binary.length; i++) {
                             bytes[i] = binary.charCodeAt(i);
                         }
-                        const blob = new Blob([bytes], { type: app.resumeType || 'application/pdf' });
                         
                         // Create unique filename: ID_Candidate_Company_OriginalName
                         const uniqueFileName = `${app.id}_${app.candidate}_${app.company}_${app.resumeFileName}`.replace(/[^a-zA-Z0-9._-]/g, '_');
-                        resumeFiles.push({ blob, name: uniqueFileName, appId: app.id });
+                        
+                        // Add resume to Resumes folder in ZIP
+                        zip.folder("Resumes").file(uniqueFileName, bytes);
+                        resumeFiles.push({ name: uniqueFileName, appId: app.id });
                     } catch (e) {
                         console.error('Failed to process resume for', app.candidate, e);
                     }
@@ -1063,30 +1074,29 @@
                 csv += row.join(',') + '\n';
             });
 
-            // Download CSV file
-            const csvBlob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-            const csvUrl = URL.createObjectURL(csvBlob);
-            const csvLink = document.createElement('a');
-            csvLink.href = csvUrl;
-            csvLink.download = `${folderName}.csv`;
-            csvLink.click();
-            URL.revokeObjectURL(csvUrl);
+            // Add CSV file to ZIP root
+            zip.file(`${folderName}.csv`, csv);
 
-            // Download all resume files
-            if (resumeFiles.length > 0) {
-                // Small delay between downloads to avoid browser blocking
-                for (let i = 0; i < resumeFiles.length; i++) {
-                    await new Promise(resolve => setTimeout(resolve, 200));
-                    const url = URL.createObjectURL(resumeFiles[i].blob);
-                    const link = document.createElement('a');
-                    link.href = url;
-                    link.download = resumeFiles[i].name;
-                    link.click();
-                    URL.revokeObjectURL(url);
-                }
-                showSuccess(`✓ Downloaded: 1 Excel file + ${resumeFiles.length} resume(s). Organize them: Excel file in main folder, all resumes in a "Resumes" subfolder.`);
-            } else {
-                showSuccess('Excel file downloaded (no resumes found)');
+            // Generate ZIP file
+            try {
+                const zipBlob = await zip.generateAsync({ 
+                    type: 'blob',
+                    compression: 'DEFLATE',
+                    compressionOptions: { level: 6 }
+                });
+
+                // Download the ZIP file
+                const url = URL.createObjectURL(zipBlob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `${folderName}.zip`;
+                link.click();
+                URL.revokeObjectURL(url);
+
+                showSuccess(`✓ Downloaded ${folderName}.zip with ${apps.length} applications and ${resumeFiles.length} resumes!`);
+            } catch (e) {
+                console.error('Failed to create ZIP:', e);
+                showError('Failed to create ZIP file. Please try again.');
             }
         }
 
