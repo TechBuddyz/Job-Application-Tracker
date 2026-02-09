@@ -7,6 +7,27 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    
+    <!-- Firebase SDK -->
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js';
+        import { getFirestore, collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyCQqXPSVKQ--g2EFzQ_1eLBxMo_pV5o7NQ",
+            authDomain: "job-application-tracker-38407.firebaseapp.com",
+            projectId: "job-application-tracker-38407",
+            storageBucket: "job-application-tracker-38407.firebasestorage.app",
+            messagingSenderId: "917048657393",
+            appId: "1:917048657393:web:87efc97c88f794bcd43050"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        window.db = getFirestore(app);
+        window.firebaseReady = true;
+        console.log('✓ Firebase initialized');
+    </script>
+    
     <style>
         * {
             margin: 0;
@@ -406,8 +427,6 @@
         </div>
 
         <div class="card">
-            <div id="syncStatus" style="display:none;margin-bottom:12px;padding:8px 12px;border-radius:6px;font-size:0.8125rem;"></div>
-
             <div class="tabs">
                 <button class="tab active" onclick="showTab('add')">Add Application</button>
                 <button class="tab" onclick="showTab('history')">View History</button>
@@ -535,287 +554,47 @@
 
     <script>
         // ============================================
-        // IndexedDB Storage (supports GBs of data)
+        // Firebase Firestore Storage (shared cloud storage)
         // ============================================
-        const DB_NAME = 'JobApplicationTracker';
-        const DB_VERSION = 1;
-        const STORE_NAME = 'applications';
-        let db = null;
+        const COLLECTION_NAME = 'applications';
 
-        function openDB() {
-            return new Promise((resolve, reject) => {
-                if (db) { resolve(db); return; }
-                const request = indexedDB.open(DB_NAME, DB_VERSION);
-                request.onupgradeneeded = function(e) {
-                    const database = e.target.result;
-                    if (!database.objectStoreNames.contains(STORE_NAME)) {
-                        const store = database.createObjectStore(STORE_NAME, { keyPath: 'id' });
-                        store.createIndex('candidate', 'candidate', { unique: false });
-                        store.createIndex('company', 'company', { unique: false });
-                        store.createIndex('dateApplied', 'dateApplied', { unique: false });
-                    }
-                };
-                request.onsuccess = function(e) {
-                    db = e.target.result;
-                    resolve(db);
-                };
-                request.onerror = function(e) {
-                    reject(e.target.error);
-                };
-            });
+        async function waitForFirebase() {
+            while (!window.firebaseReady) {
+                await new Promise(resolve => setTimeout(resolve, 50));
+            }
         }
 
         async function getApplications() {
-            const database = await openDB();
-            return new Promise((resolve, reject) => {
-                const tx = database.transaction(STORE_NAME, 'readonly');
-                const store = tx.objectStore(STORE_NAME);
-                const request = store.getAll();
-                request.onsuccess = () => resolve(request.result || []);
-                request.onerror = () => reject(request.error);
-            });
+            await waitForFirebase();
+            const { collection, getDocs, query, orderBy } = await import('https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js');
+            const q = query(collection(window.db, COLLECTION_NAME), orderBy('dateApplied', 'desc'));
+            const snapshot = await getDocs(q);
+            return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         }
 
         async function addApplication(app) {
-            const database = await openDB();
-            return new Promise((resolve, reject) => {
-                const tx = database.transaction(STORE_NAME, 'readwrite');
-                const store = tx.objectStore(STORE_NAME);
-                const request = store.add(app);
-                request.onsuccess = () => resolve();
-                request.onerror = () => reject(request.error);
-            });
+            await waitForFirebase();
+            const { collection, addDoc } = await import('https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js');
+            await addDoc(collection(window.db, COLLECTION_NAME), app);
         }
 
         async function updateApplication(app) {
-            const database = await openDB();
-            return new Promise((resolve, reject) => {
-                const tx = database.transaction(STORE_NAME, 'readwrite');
-                const store = tx.objectStore(STORE_NAME);
-                const request = store.put(app);
-                request.onsuccess = () => resolve();
-                request.onerror = () => reject(request.error);
-            });
+            await waitForFirebase();
+            const { doc, updateDoc } = await import('https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js');
+            const docRef = doc(window.db, COLLECTION_NAME, app.id);
+            const { id, ...data } = app;
+            await updateDoc(docRef, data);
         }
 
         async function removeApplication(id) {
-            const database = await openDB();
-            return new Promise((resolve, reject) => {
-                const tx = database.transaction(STORE_NAME, 'readwrite');
-                const store = tx.objectStore(STORE_NAME);
-                const request = store.delete(id);
-                request.onsuccess = () => resolve();
-                request.onerror = () => reject(request.error);
-            });
+            await waitForFirebase();
+            const { doc, deleteDoc } = await import('https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js');
+            await deleteDoc(doc(window.db, COLLECTION_NAME, id));
         }
 
         async function getUniqueValues(field) {
             const apps = await getApplications();
             return [...new Set(apps.map(a => a[field]).filter(Boolean))].sort();
-        }
-
-        // Migrate any existing localStorage data to IndexedDB
-        async function migrateFromLocalStorage() {
-            try {
-                const old = localStorage.getItem('job_applications');
-                if (!old) return;
-                const apps = JSON.parse(old);
-                if (!Array.isArray(apps) || apps.length === 0) return;
-                for (const app of apps) {
-                    try { await addApplication(app); } catch(e) { /* skip duplicates */ }
-                }
-                localStorage.removeItem('job_applications');
-                console.log(`Migrated ${apps.length} entries from localStorage to IndexedDB`);
-            } catch(e) {
-                console.error('Migration error:', e);
-            }
-        }
-
-        // ============================================
-        // Google Sheets Sync (shared history)
-        // ============================================
-        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyxfIYBSu-lGaeMHy0BT4-lYyUjuF666ytuU_Vfn5YWtVfzDwjVYojz4V9I7PUWzWOuTg/exec';
-
-        function getScriptUrl() {
-            return SCRIPT_URL;
-        }
-
-        function showSyncStatus(msg, type) {
-            const el = document.getElementById('syncStatus');
-            el.textContent = msg;
-            el.style.display = 'block';
-            el.style.background = type === 'success' ? '#d1fae5' : '#fee2e2';
-            el.style.color = type === 'success' ? '#065f46' : '#991b1b';
-            setTimeout(() => { el.style.display = 'none'; }, 3000);
-        }
-
-        // POST to Google Sheets + Google Drive (saves data; can't read response with no-cors but data IS sent)
-        async function syncToSheet(appData, resumeBase64) {
-            const url = getScriptUrl();
-            if (!url) return;
-            try {
-                // Remove local-only binary data, add base64 for Drive upload
-                const { resumeData, ...textData } = appData;
-                if (resumeBase64) {
-                    textData.resumeBase64 = resumeBase64;
-                }
-                await fetch(url, {
-                    method: 'POST',
-                    mode: 'no-cors',
-                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                    body: JSON.stringify({ action: 'save', data: textData })
-                });
-                console.log('Synced to Google Sheets + Drive');
-            } catch (e) {
-                console.error('Sheet sync failed:', e);
-            }
-        }
-
-        // DELETE from Google Sheets
-        async function syncDeleteToSheet(id) {
-            const url = getScriptUrl();
-            if (!url) return;
-            try {
-                await fetch(url, {
-                    method: 'POST',
-                    mode: 'no-cors',
-                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                    body: JSON.stringify({ action: 'delete', id: id })
-                });
-            } catch (e) {
-                console.error('Sheet delete sync failed:', e);
-            }
-        }
-
-        // UPDATE status in Google Sheets
-        async function syncStatusToSheet(id, status) {
-            const url = getScriptUrl();
-            if (!url) return;
-            try {
-                await fetch(url, {
-                    method: 'POST',
-                    mode: 'no-cors',
-                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                    body: JSON.stringify({ action: 'updateStatus', id: id, status: status })
-                });
-            } catch (e) {
-                console.error('Sheet status sync failed:', e);
-            }
-        }
-
-        // Bidirectional sync: pull from sheet + push local entries not yet in sheet
-        async function syncFromSheet() {
-            const url = getScriptUrl();
-            console.log('🔄 Starting sync. URL:', url);
-            if (!url) return;
-            try {
-                const response = await fetch(`${url}?action=getAll`);
-                const data = await response.json();
-                console.log('📥 Received from sheet:', data.applications ? data.applications.length : 0, 'entries');
-                const sheetApps = (data.applications && Array.isArray(data.applications)) ? data.applications : [];
-                const sheetIds = new Set(sheetApps.map(a => a.id ? a.id.toString() : ''));
-
-                // 1. Pull: add sheet entries we don't have locally, or update if Drive link is missing
-                const localApps = await getApplications();
-                const localIds = new Set(localApps.map(a => a.id));
-                let pulled = 0;
-                let updated = 0;
-                for (const sheetApp of sheetApps) {
-                    if (!sheetApp.id) continue;
-                    sheetApp.id = sheetApp.id.toString();
-                    
-                    if (!localIds.has(sheetApp.id)) {
-                        // New entry from sheet
-                        try { await addApplication(sheetApp); pulled++; } catch(e) { /* skip */ }
-                    } else if (sheetApp.resumeDriveLink) {
-                        // Entry exists locally - check if we need to update Drive link
-                        const localApp = localApps.find(a => a.id === sheetApp.id);
-                        if (localApp && !localApp.resumeDriveLink) {
-                            localApp.resumeDriveLink = sheetApp.resumeDriveLink;
-                            try { await updateApplication(localApp); updated++; } catch(e) { /* skip */ }
-                        }
-                    }
-                }
-
-                // 2. Push: send local entries that aren't in the sheet yet
-                let pushed = 0;
-                // #region agent log
-                fetch('http://127.0.0.1:7243/ingest/a78f26a1-3a45-433e-b418-5e172aa79c2a',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'application-tracker.html:740',message:'Starting push phase',data:{localAppCount:localApps.length,sheetIdsCount:sheetIds.size},timestamp:Date.now(),hypothesisId:'A',runId:'debug1'})}).catch(()=>{});
-                // #endregion
-                for (const app of localApps) {
-                    if (!sheetIds.has(app.id)) {
-                        const { resumeData, ...textData } = app;
-                        // #region agent log
-                        fetch('http://127.0.0.1:7243/ingest/a78f26a1-3a45-433e-b418-5e172aa79c2a',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'application-tracker.html:744',message:'Entry to push',data:{appId:app.id,hasResumeData:!!resumeData,resumeDataType:resumeData?resumeData.constructor.name:'null',resumeFileName:app.resumeFileName,candidate:app.candidate,company:app.company},timestamp:Date.now(),hypothesisId:'A',runId:'debug1'})}).catch(()=>{});
-                        // #endregion
-                        // Convert ArrayBuffer to base64 if resume exists
-                        if (resumeData && app.resumeFileName) {
-                            try {
-                                const uint8 = new Uint8Array(resumeData);
-                                // #region agent log
-                                fetch('http://127.0.0.1:7243/ingest/a78f26a1-3a45-433e-b418-5e172aa79c2a',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'application-tracker.html:752',message:'ArrayBuffer conversion',data:{uint8Length:uint8.length,appId:app.id},timestamp:Date.now(),hypothesisId:'B',runId:'debug1'})}).catch(()=>{});
-                                // #endregion
-                                const binary = uint8.reduce((acc, byte) => acc + String.fromCharCode(byte), '');
-                                textData.resumeBase64 = btoa(binary);
-                                // #region agent log
-                                fetch('http://127.0.0.1:7243/ingest/a78f26a1-3a45-433e-b418-5e172aa79c2a',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'application-tracker.html:758',message:'Base64 conversion success',data:{base64Length:textData.resumeBase64.length,appId:app.id},timestamp:Date.now(),hypothesisId:'B',runId:'debug1'})}).catch(()=>{});
-                                // #endregion
-                            } catch(e) {
-                                // #region agent log
-                                fetch('http://127.0.0.1:7243/ingest/a78f26a1-3a45-433e-b418-5e172aa79c2a',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'application-tracker.html:763',message:'Base64 conversion ERROR',data:{error:e.message,appId:app.id},timestamp:Date.now(),hypothesisId:'B',runId:'debug1'})}).catch(()=>{});
-                                // #endregion
-                                console.error('Failed to convert resume to base64:', e);
-                            }
-                        }
-                        // #region agent log
-                        fetch('http://127.0.0.1:7243/ingest/a78f26a1-3a45-433e-b418-5e172aa79c2a',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'application-tracker.html:770',message:'Sending to Apps Script',data:{hasResumeBase64:!!textData.resumeBase64,resumeBase64Length:textData.resumeBase64?textData.resumeBase64.length:0,payloadKeys:Object.keys(textData),appId:app.id},timestamp:Date.now(),hypothesisId:'C',runId:'debug1'})}).catch(()=>{});
-                        // #endregion
-                        try {
-                            await fetch(url, {
-                                method: 'POST',
-                                mode: 'no-cors',
-                                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                                body: JSON.stringify({ action: 'save', data: textData })
-                            });
-                            pushed++;
-                        } catch(e) { 
-                            console.error('Push failed for entry:', app.id, e);
-                        }
-                    }
-                }
-                // #region agent log
-                fetch('http://127.0.0.1:7243/ingest/a78f26a1-3a45-433e-b418-5e172aa79c2a',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'application-tracker.html:786',message:'Push phase complete',data:{pushedCount:pushed},timestamp:Date.now(),hypothesisId:'A',runId:'debug1'})}).catch(()=>{});
-                // #endregion
-
-                // 3. If we pushed entries, wait a bit then pull again to get Drive links
-                if (pushed > 0) {
-                    await new Promise(r => setTimeout(r, 3000)); // Wait 3s for Drive upload to complete
-                    // Re-run the pull logic to update with Drive links
-                    const response2 = await fetch(`${url}?action=getAll`);
-                    const data2 = await response2.json();
-                    if (data2.applications && Array.isArray(data2.applications)) {
-                        const localApps2 = await getApplications();
-                        for (const sheetApp of data2.applications) {
-                            if (sheetApp.resumeDriveLink) {
-                                const localApp = localApps2.find(a => a.id === sheetApp.id);
-                                if (localApp && !localApp.resumeDriveLink) {
-                                    localApp.resumeDriveLink = sheetApp.resumeDriveLink;
-                                    await updateApplication(localApp);
-                                    updated++;
-                                }
-                            }
-                        }
-                    }
-                }
-
-                if (pulled > 0 || pushed > 0 || updated > 0) {
-                    console.log(`Sync: pulled ${pulled}, pushed ${pushed}, updated ${updated}`);
-                    showSyncStatus(`Synced: ${pulled} new, ${pushed} pushed, ${updated} updated`, 'success');
-                }
-            } catch (e) {
-                console.error('Failed to sync with Google Sheets:', e);
-                showSyncStatus('Sync failed - check console', 'error');
-            }
         }
 
         // ============================================
@@ -923,11 +702,6 @@
             if (tab === 'history') {
                 updateFilterDropdown();
                 renderApplications();
-                // Sync from Google Sheets to get entries from other users
-                syncFromSheet().then(() => {
-                    updateFilterDropdown();
-                    renderApplications();
-                });
             }
         }
 
@@ -962,24 +736,28 @@
         function downloadResume(appId) {
             getApplications().then(apps => {
                 const app = apps.find(a => a.id === appId);
-                if (!app) return;
-                // If we have a Drive link (synced), open it
-                if (app.resumeDriveLink) {
-                    window.open(app.resumeDriveLink, '_blank');
+                if (!app || !app.resumeBase64) {
+                    alert('Resume not available');
                     return;
                 }
-                // Otherwise use local IndexedDB data
-                if (app.resumeData) {
-                    const blob = new Blob([app.resumeData], { type: app.resumeType || 'application/pdf' });
+                // Convert base64 back to blob and download
+                try {
+                    const binary = atob(app.resumeBase64);
+                    const bytes = new Uint8Array(binary.length);
+                    for (let i = 0; i < binary.length; i++) {
+                        bytes[i] = binary.charCodeAt(i);
+                    }
+                    const blob = new Blob([bytes], { type: app.resumeType || 'application/pdf' });
                     const url = URL.createObjectURL(blob);
                     const a = document.createElement('a');
                     a.href = url;
                     a.download = app.resumeFileName || 'resume.pdf';
                     a.click();
                     URL.revokeObjectURL(url);
-                    return;
+                } catch (e) {
+                    console.error('Failed to download resume:', e);
+                    alert('Failed to download resume');
                 }
-                alert('Resume not available. It was uploaded from a different device.');
             });
         }
 
@@ -1020,15 +798,12 @@
                     jdLink,
                     jobDescription,
                     resumeFileName,
-                    resumeData: uploadedResumeBlob || null,
+                    resumeBase64: uploadedResumeBase64 || '',
                     resumeType: uploadedResumeType || '',
                     dateApplied,
                     status: 'Applied'
                 };
                 await addApplication(entry);
-                // Sync to Google Sheets + Drive (async, don't block UI)
-                syncToSheet(entry, uploadedResumeBase64);
-
                 showSuccess(`Application saved for ${candidate} at ${company}!`);
 
                 // Clear form
@@ -1065,7 +840,6 @@
         async function deleteApplication(id) {
             if (!confirm('Delete this application?')) return;
             await removeApplication(id);
-            syncDeleteToSheet(id);
             await updateFilterDropdown();
             await renderApplications();
         }
@@ -1079,7 +853,6 @@
             if (app) {
                 app.status = newStatus;
                 await updateApplication(app);
-                syncStatusToSheet(id, newStatus);
                 await renderApplications();
             }
         }
@@ -1277,13 +1050,7 @@
         // ============================================
         document.addEventListener('DOMContentLoaded', async function() {
             document.getElementById('dateApplied').value = new Date().toISOString().split('T')[0];
-            await openDB();
-            await migrateFromLocalStorage();
             await populateWhoApplied();
-            // Bidirectional sync with Google Sheets on load
-            syncFromSheet().then(() => {
-                populateWhoApplied();
-            });
         });
     </script>
 </body>
