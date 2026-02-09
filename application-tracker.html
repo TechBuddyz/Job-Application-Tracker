@@ -1034,28 +1034,26 @@
                 }
             }
 
-            // Create CSV with relative links to resume files
-            const headers = ['Candidate', 'Company', 'Job Title', 'Applied By', 'Date Applied', 'Resume File', 'Resume Link', 'JD Link', 'Job Description', 'Status'];
+            // Create CSV with simple data
+            const headers = ['Candidate', 'Company', 'Job Title', 'Applied By', 'Date Applied', 'Resume File Path', 'JD Link', 'Job Description', 'Status'];
             const rows = apps.map(a => {
-                // Create a relative hyperlink formula for Excel
-                let resumeLink = '';
+                // Simple relative path to resume file
+                let resumePath = '';
                 const resumeFile = resumeFiles.find(rf => rf.appId === a.id);
                 if (resumeFile) {
-                    // Excel HYPERLINK formula with relative path
-                    resumeLink = `=HYPERLINK("Resumes/${resumeFile.name}","Open Resume")`;
+                    resumePath = `Resumes/${resumeFile.name}`;
                 }
                 
                 return [
-                    csvEscape(a.candidate),
-                    csvEscape(a.company),
-                    csvEscape(a.jobTitle),
-                    csvEscape(a.whoApplied),
-                    csvEscape(a.dateApplied),
-                    csvEscape(a.resumeFileName),
-                    resumeLink, // Clickable link to local file
-                    csvEscape(a.jdLink),
-                    csvEscape(a.jobDescription),
-                    csvEscape(a.status)
+                    csvEscape(a.candidate || ''),
+                    csvEscape(a.company || ''),
+                    csvEscape(a.jobTitle || ''),
+                    csvEscape(a.whoApplied || ''),
+                    csvEscape(a.dateApplied || ''),
+                    csvEscape(resumePath || 'N/A'),
+                    csvEscape(a.jdLink || ''),
+                    csvEscape(a.jobDescription || ''),
+                    csvEscape(a.status || '')
                 ];
             });
 
@@ -1086,9 +1084,9 @@
                     link.click();
                     URL.revokeObjectURL(url);
                 }
-                showSuccess(`Excel file and ${resumeFiles.length} resume(s) downloaded! Create a "Resumes" folder and move all resume files there for links to work.`);
+                showSuccess(`✓ Downloaded: 1 Excel file + ${resumeFiles.length} resume(s). Organize them: Excel file in main folder, all resumes in a "Resumes" subfolder.`);
             } else {
-                showSuccess('Excel file downloaded!');
+                showSuccess('Excel file downloaded (no resumes found)');
             }
         }
 
