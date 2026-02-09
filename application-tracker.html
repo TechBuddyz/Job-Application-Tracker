@@ -629,14 +629,38 @@
         // Save Application
         // ============================================
         let uploadedResumeFileName = '';
+        let uploadedResumeBlob = null;
+        let uploadedResumeType = '';
 
         function handleResumeUpload(event) {
             const file = event.target.files[0];
             if (file) {
                 uploadedResumeFileName = file.name;
-                document.getElementById('resumeDisplay').textContent = file.name;
-                document.getElementById('resumeDisplay').style.color = '#059669';
+                uploadedResumeType = file.type;
+                // Store the file as ArrayBuffer for IndexedDB
+                file.arrayBuffer().then(buffer => {
+                    uploadedResumeBlob = buffer;
+                    document.getElementById('resumeDisplay').textContent = file.name;
+                    document.getElementById('resumeDisplay').style.color = '#059669';
+                });
             }
+        }
+
+        function downloadResume(appId) {
+            getApplications().then(apps => {
+                const app = apps.find(a => a.id === appId);
+                if (!app || !app.resumeData) {
+                    alert('No resume file stored for this entry.');
+                    return;
+                }
+                const blob = new Blob([app.resumeData], { type: app.resumeType || 'application/pdf' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = app.resumeFileName || 'resume.pdf';
+                a.click();
+                URL.revokeObjectURL(url);
+            });
         }
 
         async function saveApplication() {
@@ -667,7 +691,7 @@
             btn.textContent = 'Saving...';
 
             try {
-                await addApplication({
+                const entry = {
                     id: Date.now().toString(),
                     candidate,
                     company,
@@ -676,9 +700,12 @@
                     jdLink,
                     jobDescription,
                     resumeFileName,
+                    resumeData: uploadedResumeBlob || null,
+                    resumeType: uploadedResumeType || '',
                     dateApplied,
                     status: 'Applied'
-                });
+                };
+                await addApplication(entry);
 
                 showSuccess(`Application saved for ${candidate} at ${company}!`);
 
@@ -693,6 +720,8 @@
                 document.getElementById('jobDescription').value = '';
                 document.getElementById('resumeFile').value = '';
                 uploadedResumeFileName = '';
+                uploadedResumeBlob = null;
+                uploadedResumeType = '';
                 document.getElementById('resumeDisplay').textContent = 'No file chosen';
                 document.getElementById('resumeDisplay').style.color = '#6b7280';
                 document.getElementById('dateApplied').value = new Date().toISOString().split('T')[0];
@@ -780,7 +809,7 @@
                                 <td>${app.jdLink ? `<a href="${escapeHtml(app.jdLink)}" target="_blank" class="jd-link">${escapeHtml(app.jobTitle)}</a>` : escapeHtml(app.jobTitle)}</td>
                                 <td>${escapeHtml(app.whoApplied || '-')}</td>
                                 <td>${escapeHtml(app.dateApplied || '-')}</td>
-                                <td>${escapeHtml(app.resumeFileName || '-')}</td>
+                                <td>${app.resumeData ? `<a href="#" onclick="event.preventDefault(); downloadResume('${app.id}')" class="jd-link">${escapeHtml(app.resumeFileName)}</a>` : escapeHtml(app.resumeFileName || '-')}</td>
                                 <td>
                                     <select onchange="updateStatus('${app.id}', this.value)" style="padding:3px 6px; font-size:0.75rem; border:1px solid #e5e7eb; border-radius:4px;">
                                         <option value="Applied" ${app.status === 'Applied' ? 'selected' : ''}>Applied</option>
