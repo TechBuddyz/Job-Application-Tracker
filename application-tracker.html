@@ -39,46 +39,58 @@
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
             background: #0f1419;
             min-height: 100vh;
-            padding: 48px 24px;
+            padding: 24px;
             color: #1a1a1a;
         }
 
         .container {
-            max-width: 800px;
+            max-width: 1400px;
             margin: 0 auto;
         }
 
         .header {
             text-align: center;
-            margin-bottom: 32px;
+            margin-bottom: 40px;
         }
 
         .header h1 {
-            font-size: 1.75rem;
+            font-size: 2rem;
             font-weight: 600;
             color: #f5f5f5;
-            margin-bottom: 8px;
+            margin-bottom: 10px;
         }
 
         .header p {
-            font-size: 0.9375rem;
+            font-size: 1rem;
             color: #94a3b8;
         }
 
         .card {
             background: #ffffff;
-            border-radius: 8px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
             border: 1px solid #e5e7eb;
-            padding: 32px;
+            padding: 40px;
             margin-bottom: 24px;
         }
 
         .form-row {
             display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 16px;
-            margin-bottom: 16px;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        @media (max-width: 1024px) {
+            .form-row {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (max-width: 640px) {
+            .form-row {
+                grid-template-columns: 1fr;
+            }
         }
 
         .form-group {
@@ -97,13 +109,14 @@
         .form-group select,
         .form-group textarea {
             width: 100%;
-            padding: 10px 12px;
+            padding: 12px 14px;
             border: 1px solid #e5e7eb;
-            border-radius: 6px;
-            font-size: 0.875rem;
+            border-radius: 8px;
+            font-size: 0.9375rem;
             color: #374151;
             background: #fafafa;
             font-family: inherit;
+            transition: all 0.2s;
         }
 
         .form-group input:focus,
@@ -151,17 +164,19 @@
             background: #6366f1;
             color: white;
             border: none;
-            padding: 12px 24px;
-            border-radius: 6px;
-            font-size: 0.9375rem;
+            padding: 14px 28px;
+            border-radius: 8px;
+            font-size: 1rem;
             font-weight: 500;
             cursor: pointer;
             width: 100%;
-            transition: background 0.2s;
+            transition: all 0.2s;
         }
 
         .btn:hover {
             background: #4f46e5;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
         }
 
         .btn:disabled {
@@ -172,12 +187,13 @@
         .btn-export {
             background: #059669;
             width: auto;
-            padding: 10px 20px;
-            font-size: 0.8125rem;
+            padding: 12px 24px;
+            font-size: 0.9375rem;
         }
 
         .btn-export:hover {
             background: #047857;
+            box-shadow: 0 4px 12px rgba(5, 150, 105, 0.3);
         }
 
         .btn-delete {
@@ -197,12 +213,12 @@
         .applications-table {
             width: 100%;
             border-collapse: collapse;
-            font-size: 0.8125rem;
+            font-size: 0.875rem;
         }
 
         .applications-table th,
         .applications-table td {
-            padding: 10px 8px;
+            padding: 14px 12px;
             text-align: left;
             border-bottom: 1px solid #e5e7eb;
         }
@@ -211,9 +227,14 @@
             background: #f9fafb;
             font-weight: 600;
             color: #374151;
-            font-size: 0.75rem;
+            font-size: 0.8125rem;
             text-transform: uppercase;
             letter-spacing: 0.05em;
+            white-space: nowrap;
+        }
+
+        .applications-table td {
+            color: #1f2937;
         }
 
         .applications-table tr:hover {
@@ -242,10 +263,16 @@
             text-decoration: underline;
         }
 
+        #applicationsContainer {
+            overflow-x: auto;
+            margin-top: 24px;
+        }
+
         .empty-state {
             text-align: center;
-            padding: 40px;
+            padding: 60px 40px;
             color: #6b7280;
+            font-size: 1rem;
         }
 
         .success-message {
@@ -309,27 +336,29 @@
         .history-header {
             display: flex;
             flex-wrap: wrap;
-            gap: 12px;
+            gap: 16px;
             align-items: flex-end;
-            margin-bottom: 20px;
+            margin-bottom: 28px;
         }
 
         .history-header .form-group {
             margin-bottom: 0;
+            min-width: 180px;
         }
 
         .history-filters {
             display: flex;
-            gap: 12px;
+            gap: 16px;
             flex: 1;
+            align-items: center;
         }
 
         .count-badge {
             background: #f3f4f6;
             color: #374151;
-            padding: 6px 12px;
-            border-radius: 6px;
-            font-size: 0.8125rem;
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-size: 0.875rem;
             font-weight: 500;
         }
 
@@ -981,34 +1010,86 @@
                 return;
             }
 
-            const headers = ['Candidate', 'Company', 'Job Title', 'Applied By', 'Date Applied', 'Resume File', 'JD Link', 'Job Description', 'Status'];
-            const rows = apps.map(a => [
-                csvEscape(a.candidate),
-                csvEscape(a.company),
-                csvEscape(a.jobTitle),
-                csvEscape(a.whoApplied),
-                csvEscape(a.dateApplied),
-                csvEscape(a.resumeFileName),
-                csvEscape(a.jdLink),
-                csvEscape(a.jobDescription),
-                csvEscape(a.status)
-            ]);
+            const timestamp = new Date().toISOString().split('T')[0];
+            const folderName = `Job_Applications_${timestamp}`;
 
-            // BOM for Excel to recognize UTF-8
+            // First, download all resumes as individual files
+            const resumeFiles = [];
+            for (const app of apps) {
+                if (app.resumeBase64 && app.resumeFileName) {
+                    try {
+                        const binary = atob(app.resumeBase64);
+                        const bytes = new Uint8Array(binary.length);
+                        for (let i = 0; i < binary.length; i++) {
+                            bytes[i] = binary.charCodeAt(i);
+                        }
+                        const blob = new Blob([bytes], { type: app.resumeType || 'application/pdf' });
+                        
+                        // Create unique filename: ID_Candidate_Company_OriginalName
+                        const uniqueFileName = `${app.id}_${app.candidate}_${app.company}_${app.resumeFileName}`.replace(/[^a-zA-Z0-9._-]/g, '_');
+                        resumeFiles.push({ blob, name: uniqueFileName, appId: app.id });
+                    } catch (e) {
+                        console.error('Failed to process resume for', app.candidate, e);
+                    }
+                }
+            }
+
+            // Create CSV with relative links to resume files
+            const headers = ['Candidate', 'Company', 'Job Title', 'Applied By', 'Date Applied', 'Resume File', 'Resume Link', 'JD Link', 'Job Description', 'Status'];
+            const rows = apps.map(a => {
+                // Create a relative hyperlink formula for Excel
+                let resumeLink = '';
+                const resumeFile = resumeFiles.find(rf => rf.appId === a.id);
+                if (resumeFile) {
+                    // Excel HYPERLINK formula with relative path
+                    resumeLink = `=HYPERLINK("Resumes/${resumeFile.name}","Open Resume")`;
+                }
+                
+                return [
+                    csvEscape(a.candidate),
+                    csvEscape(a.company),
+                    csvEscape(a.jobTitle),
+                    csvEscape(a.whoApplied),
+                    csvEscape(a.dateApplied),
+                    csvEscape(a.resumeFileName),
+                    resumeLink, // Clickable link to local file
+                    csvEscape(a.jdLink),
+                    csvEscape(a.jobDescription),
+                    csvEscape(a.status)
+                ];
+            });
+
+            // Build CSV content
             let csv = '\uFEFF' + headers.join(',') + '\n';
             rows.forEach(row => {
                 csv += row.join(',') + '\n';
             });
 
-            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = `Job_Applications_${new Date().toISOString().split('T')[0]}.csv`;
-            link.click();
-            URL.revokeObjectURL(url);
+            // Download CSV file
+            const csvBlob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const csvUrl = URL.createObjectURL(csvBlob);
+            const csvLink = document.createElement('a');
+            csvLink.href = csvUrl;
+            csvLink.download = `${folderName}.csv`;
+            csvLink.click();
+            URL.revokeObjectURL(csvUrl);
 
-            showSuccess('Excel file downloaded!');
+            // Download all resume files
+            if (resumeFiles.length > 0) {
+                // Small delay between downloads to avoid browser blocking
+                for (let i = 0; i < resumeFiles.length; i++) {
+                    await new Promise(resolve => setTimeout(resolve, 200));
+                    const url = URL.createObjectURL(resumeFiles[i].blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = resumeFiles[i].name;
+                    link.click();
+                    URL.revokeObjectURL(url);
+                }
+                showSuccess(`Excel file and ${resumeFiles.length} resume(s) downloaded! Create a "Resumes" folder and move all resume files there for links to work.`);
+            } else {
+                showSuccess('Excel file downloaded!');
+            }
         }
 
         function csvEscape(val) {
