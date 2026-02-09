@@ -7,8 +7,6 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -55,15 +53,6 @@
             margin-bottom: 24px;
         }
 
-        .card h2 {
-            font-size: 1rem;
-            font-weight: 600;
-            color: #1f2937;
-            margin-bottom: 20px;
-            padding-bottom: 12px;
-            border-bottom: 1px solid #e5e7eb;
-        }
-
         .form-row {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -84,7 +73,8 @@
         }
 
         .form-group input,
-        .form-group select {
+        .form-group select,
+        .form-group textarea {
             width: 100%;
             padding: 10px 12px;
             border: 1px solid #e5e7eb;
@@ -92,10 +82,12 @@
             font-size: 0.875rem;
             color: #374151;
             background: #fafafa;
+            font-family: inherit;
         }
 
         .form-group input:focus,
-        .form-group select:focus {
+        .form-group select:focus,
+        .form-group textarea:focus {
             outline: none;
             border-color: #6366f1;
             box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
@@ -134,34 +126,6 @@
             background: #f3f4f6;
         }
 
-        .file-upload {
-            border: 2px dashed #e5e7eb;
-            border-radius: 6px;
-            padding: 24px;
-            text-align: center;
-            cursor: pointer;
-            transition: border-color 0.2s;
-        }
-
-        .file-upload:hover {
-            border-color: #6366f1;
-        }
-
-        .file-upload input {
-            display: none;
-        }
-
-        .file-upload-text {
-            color: #6b7280;
-            font-size: 0.875rem;
-        }
-
-        .file-name {
-            color: #059669;
-            font-weight: 500;
-            margin-top: 8px;
-        }
-
         .btn {
             background: #6366f1;
             color: white;
@@ -184,41 +148,40 @@
             cursor: not-allowed;
         }
 
-        .btn-secondary {
-            background: #f3f4f6;
-            color: #374151;
+        .btn-export {
+            background: #059669;
+            width: auto;
+            padding: 10px 20px;
+            font-size: 0.8125rem;
         }
 
-        .btn-secondary:hover {
-            background: #e5e7eb;
+        .btn-export:hover {
+            background: #047857;
         }
 
-        .setup-box {
-            background: #fef3c7;
-            border: 1px solid #fcd34d;
-            border-radius: 6px;
-            padding: 16px;
-            margin-bottom: 24px;
-            font-size: 0.875rem;
-            color: #92400e;
+        .btn-delete {
+            background: none;
+            border: none;
+            color: #ef4444;
+            cursor: pointer;
+            font-size: 0.8125rem;
+            padding: 4px 8px;
         }
 
-        .setup-box code {
-            background: #fde68a;
-            padding: 2px 6px;
-            border-radius: 3px;
-            font-family: monospace;
+        .btn-delete:hover {
+            color: #dc2626;
+            text-decoration: underline;
         }
 
         .applications-table {
             width: 100%;
             border-collapse: collapse;
-            font-size: 0.875rem;
+            font-size: 0.8125rem;
         }
 
         .applications-table th,
         .applications-table td {
-            padding: 12px;
+            padding: 10px 8px;
             text-align: left;
             border-bottom: 1px solid #e5e7eb;
         }
@@ -227,6 +190,9 @@
             background: #f9fafb;
             font-weight: 600;
             color: #374151;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
         }
 
         .applications-table tr:hover {
@@ -235,31 +201,16 @@
 
         .status-badge {
             display: inline-block;
-            padding: 4px 10px;
+            padding: 3px 8px;
             border-radius: 12px;
-            font-size: 0.75rem;
+            font-size: 0.6875rem;
             font-weight: 500;
         }
 
-        .status-applied {
-            background: #dbeafe;
-            color: #1e40af;
-        }
-
-        .status-interview {
-            background: #d1fae5;
-            color: #065f46;
-        }
-
-        .status-rejected {
-            background: #fee2e2;
-            color: #991b1b;
-        }
-
-        .status-offer {
-            background: #fef3c7;
-            color: #92400e;
-        }
+        .status-applied { background: #dbeafe; color: #1e40af; }
+        .status-interview { background: #d1fae5; color: #065f46; }
+        .status-rejected { background: #fee2e2; color: #991b1b; }
+        .status-offer { background: #fef3c7; color: #92400e; }
 
         .jd-link {
             color: #6366f1;
@@ -334,9 +285,38 @@
             display: block;
         }
 
+        .history-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+
+        .history-header .form-group {
+            margin-bottom: 0;
+            flex: 1;
+        }
+
+        .count-badge {
+            background: #f3f4f6;
+            color: #374151;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 0.8125rem;
+            font-weight: 500;
+        }
+
         @media (max-width: 640px) {
             .form-row {
                 grid-template-columns: 1fr;
+            }
+            .history-header {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .applications-table {
+                font-size: 0.75rem;
             }
         }
     </style>
@@ -349,17 +329,6 @@
         </div>
 
         <div class="card">
-            <div class="setup-box" id="setupBox">
-                <strong>Setup Required:</strong> Enter your Google Apps Script Web App URL below.
-                <div style="margin-top: 12px;">
-                    <input type="text" id="scriptUrl" placeholder="https://script.google.com/macros/s/..." 
-                           style="width: 100%; padding: 8px; border: 1px solid #fcd34d; border-radius: 4px;">
-                    <button onclick="saveScriptUrl()" style="margin-top: 8px; padding: 8px 16px; background: #f59e0b; color: white; border: none; border-radius: 4px; cursor: pointer;">
-                        Save URL
-                    </button>
-                </div>
-            </div>
-
             <div class="tabs">
                 <button class="tab active" onclick="showTab('add')">Add Application</button>
                 <button class="tab" onclick="showTab('history')">View History</button>
@@ -375,14 +344,17 @@
                         <label>Candidate Name</label>
                         <div class="autocomplete-wrapper">
                             <input type="text" id="candidateName" placeholder="Enter or select candidate" 
-                                   oninput="filterCandidates()" onfocus="showCandidateList()">
+                                   oninput="filterAutocomplete('candidateName','candidateList','candidates')" 
+                                   onfocus="showAutocompleteList('candidateName','candidateList','candidates')">
                             <div class="autocomplete-list" id="candidateList"></div>
                         </div>
                     </div>
                     <div class="form-group">
                         <label>Company</label>
-                        <div class="autocomplete-container">
-                            <input type="text" id="company" placeholder="e.g., Google" oninput="filterCompanies()" onfocus="filterCompanies()">
+                        <div class="autocomplete-wrapper">
+                            <input type="text" id="company" placeholder="e.g., Google" 
+                                   oninput="filterAutocomplete('company','companyList','companies')" 
+                                   onfocus="showAutocompleteList('company','companyList','companies')">
                             <div class="autocomplete-list" id="companyList"></div>
                         </div>
                     </div>
@@ -391,8 +363,10 @@
                 <div class="form-row">
                     <div class="form-group">
                         <label>Job Title</label>
-                        <div class="autocomplete-container">
-                            <input type="text" id="jobTitle" placeholder="e.g., Software Engineer" oninput="filterJobTitles()" onfocus="filterJobTitles()">
+                        <div class="autocomplete-wrapper">
+                            <input type="text" id="jobTitle" placeholder="e.g., Software Engineer" 
+                                   oninput="filterAutocomplete('jobTitle','jobTitleList','jobTitles')" 
+                                   onfocus="showAutocompleteList('jobTitle','jobTitleList','jobTitles')">
                             <div class="autocomplete-list" id="jobTitleList"></div>
                         </div>
                     </div>
@@ -415,23 +389,19 @@
                         <input type="date" id="dateApplied">
                     </div>
                     <div class="form-group">
-                        <label>JD Link <span style="color: #6b7280; font-weight: normal;">(or paste description below)</span></label>
+                        <label>JD Link</label>
                         <input type="text" id="jdLink" placeholder="https://...">
                     </div>
                 </div>
 
                 <div class="form-group">
-                    <label>Job Description <span style="color: #6b7280; font-weight: normal;">(required if no link provided)</span></label>
-                    <textarea id="jobDescription" rows="4" style="width: 100%; padding: 10px 12px; border: 1px solid #e5e7eb; border-radius: 6px; font-size: 0.875rem; font-family: inherit; resize: vertical;" placeholder="Paste the job description here..."></textarea>
+                    <label>Job Description</label>
+                    <textarea id="jobDescription" rows="4" placeholder="Paste the job description here..." style="resize: vertical;"></textarea>
                 </div>
 
                 <div class="form-group">
-                    <label>Resume</label>
-                    <div class="file-upload" onclick="document.getElementById('resumeFile').click()">
-                        <input type="file" id="resumeFile" accept=".pdf,.docx" onchange="handleFileUpload(event)">
-                        <div class="file-upload-text">Click to upload PDF or DOCX</div>
-                        <div class="file-name" id="fileName"></div>
-                    </div>
+                    <label>Resume File Name</label>
+                    <input type="text" id="resumeFileName" placeholder="e.g., Pragnya_Resume_v2.pdf">
                 </div>
 
                 <button class="btn" id="saveBtn" onclick="saveApplication()">Save Application</button>
@@ -439,203 +409,109 @@
 
             <!-- History Tab -->
             <div id="historyTab" class="tab-content">
-                <div class="form-group" style="margin-bottom: 20px;">
-                    <label>Filter by Candidate</label>
-                    <select id="filterCandidate" onchange="loadApplications()">
-                        <option value="">All Candidates</option>
-                    </select>
+                <div class="history-header">
+                    <div class="form-group">
+                        <label>Filter by Candidate</label>
+                        <select id="filterCandidate" onchange="renderApplications()">
+                            <option value="">All Candidates</option>
+                        </select>
+                    </div>
+                    <div style="display: flex; gap: 8px; align-items: center;">
+                        <span class="count-badge" id="appCount">0 applications</span>
+                        <button class="btn btn-export" onclick="downloadExcel()">Download Excel</button>
+                    </div>
                 </div>
 
                 <div id="applicationsContainer">
-                    <div class="empty-state">Loading applications...</div>
+                    <div class="empty-state">No applications yet. Add your first one!</div>
                 </div>
             </div>
         </div>
     </div>
 
     <script>
-        // PDF.js configuration
-        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        // ============================================
+        // Data stored in localStorage
+        // ============================================
+        const STORAGE_KEY = 'job_applications';
 
-        let candidates = [];
-        let companies = [];
-        let jobTitles = [];
-        let resumeText = '';
-        let SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwIGn2xjv93JNC23aDEnwu2-J_hvOZlLrOiTT0RL49TQD9ptstwCNjuNokEm6kOZOn5/exec';
+        function getApplications() {
+            try {
+                return JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+            } catch (e) {
+                return [];
+            }
+        }
 
-        // Initialize
-        document.addEventListener('DOMContentLoaded', function() {
-            // URL is hardcoded, so always hide setup and load candidates
-            document.getElementById('setupBox').style.display = 'none';
-            // Set default date to today
-            document.getElementById('dateApplied').value = new Date().toISOString().split('T')[0];
-            loadCandidates();
-            loadCompanies();
-            loadJobTitles();
+        function saveApplications(apps) {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(apps));
+        }
+
+        // Derive unique lists from saved data
+        function getUniqueValues(field) {
+            const apps = getApplications();
+            return [...new Set(apps.map(a => a[field]).filter(Boolean))].sort();
+        }
+
+        // ============================================
+        // Autocomplete helpers (generic)
+        // ============================================
+        const autocompleteSources = {
+            candidates: () => getUniqueValues('candidate'),
+            companies: () => getUniqueValues('company'),
+            jobTitles: () => getUniqueValues('jobTitle')
+        };
+
+        function filterAutocomplete(inputId, listId, sourceKey) {
+            const input = document.getElementById(inputId).value.toLowerCase();
+            const list = document.getElementById(listId);
+            const items = autocompleteSources[sourceKey]();
+
+            if (!input) {
+                list.classList.remove('show');
+                return;
+            }
+
+            const filtered = items.filter(c => c.toLowerCase().includes(input));
+            if (filtered.length > 0) {
+                list.innerHTML = filtered.map(c =>
+                    `<div class="autocomplete-item" onclick="selectAutocomplete('${inputId}','${listId}','${c.replace(/'/g, "\\'")}')">${c}</div>`
+                ).join('');
+                list.classList.add('show');
+            } else {
+                list.classList.remove('show');
+            }
+        }
+
+        function showAutocompleteList(inputId, listId, sourceKey) {
+            const items = autocompleteSources[sourceKey]();
+            const list = document.getElementById(listId);
+            if (items.length > 0) {
+                list.innerHTML = items.map(c =>
+                    `<div class="autocomplete-item" onclick="selectAutocomplete('${inputId}','${listId}','${c.replace(/'/g, "\\'")}')">${c}</div>`
+                ).join('');
+                list.classList.add('show');
+            }
+        }
+
+        function selectAutocomplete(inputId, listId, value) {
+            document.getElementById(inputId).value = value;
+            document.getElementById(listId).classList.remove('show');
+        }
+
+        // Hide autocomplete when clicking outside
+        document.addEventListener('click', function(e) {
+            if (!e.target.closest('.autocomplete-wrapper')) {
+                document.querySelectorAll('.autocomplete-list').forEach(l => l.classList.remove('show'));
+            }
         });
 
-        function saveScriptUrl() {
-            const url = document.getElementById('scriptUrl').value.trim();
-            if (url) {
-                SCRIPT_URL = url;
-                localStorage.setItem('scriptUrl', url);
-                document.getElementById('setupBox').style.display = 'none';
-                loadCandidates();
-                showSuccess('Script URL saved successfully!');
-            }
-        }
-
-        function showTab(tab) {
-            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-            
-            document.querySelector(`.tab:nth-child(${tab === 'add' ? 1 : 2})`).classList.add('active');
-            document.getElementById(tab + 'Tab').classList.add('active');
-            
-            if (tab === 'history') {
-                loadApplications();
-            }
-        }
-
-        async function loadCandidates() {
-            if (!SCRIPT_URL) return;
-            
-            try {
-                const response = await fetch(`${SCRIPT_URL}?action=getCandidates`);
-                const data = await response.json();
-                candidates = data.candidates || [];
-                updateCandidateFilter();
-            } catch (error) {
-                console.error('Failed to load candidates:', error);
-            }
-        }
-
-        function updateCandidateFilter() {
-            const select = document.getElementById('filterCandidate');
-            select.innerHTML = '<option value="">All Candidates</option>';
-            candidates.forEach(c => {
-                select.innerHTML += `<option value="${c}">${c}</option>`;
-            });
-        }
-
-        function filterCandidates() {
-            const input = document.getElementById('candidateName').value.toLowerCase();
-            const list = document.getElementById('candidateList');
-            
-            if (!input) {
-                list.classList.remove('show');
-                return;
-            }
-            
-            const filtered = candidates.filter(c => c.toLowerCase().includes(input));
-            
-            if (filtered.length > 0) {
-                list.innerHTML = filtered.map(c => 
-                    `<div class="autocomplete-item" onclick="selectCandidate('${c}')">${c}</div>`
-                ).join('');
-                list.classList.add('show');
-            } else {
-                list.classList.remove('show');
-            }
-        }
-
-        function showCandidateList() {
-            if (candidates.length > 0) {
-                const list = document.getElementById('candidateList');
-                list.innerHTML = candidates.map(c => 
-                    `<div class="autocomplete-item" onclick="selectCandidate('${c}')">${c}</div>`
-                ).join('');
-                list.classList.add('show');
-            }
-        }
-
-        function selectCandidate(name) {
-            document.getElementById('candidateName').value = name;
-            document.getElementById('candidateList').classList.remove('show');
-        }
-
-        // Company autocomplete
-        async function loadCompanies() {
-            if (!SCRIPT_URL) return;
-            
-            try {
-                const response = await fetch(`${SCRIPT_URL}?action=getCompanies`);
-                const data = await response.json();
-                companies = data.companies || [];
-            } catch (error) {
-                console.error('Failed to load companies:', error);
-            }
-        }
-
-        function filterCompanies() {
-            const input = document.getElementById('company').value.toLowerCase();
-            const list = document.getElementById('companyList');
-            
-            if (!input) {
-                list.classList.remove('show');
-                return;
-            }
-            
-            const filtered = companies.filter(c => c.toLowerCase().includes(input));
-            
-            if (filtered.length > 0) {
-                list.innerHTML = filtered.map(c => 
-                    `<div class="autocomplete-item" onclick="selectCompany('${c.replace(/'/g, "\\'")}')">${c}</div>`
-                ).join('');
-                list.classList.add('show');
-            } else {
-                list.classList.remove('show');
-            }
-        }
-
-        function selectCompany(name) {
-            document.getElementById('company').value = name;
-            document.getElementById('companyList').classList.remove('show');
-        }
-
-        // Job Title autocomplete
-        async function loadJobTitles() {
-            if (!SCRIPT_URL) return;
-            
-            try {
-                const response = await fetch(`${SCRIPT_URL}?action=getJobTitles`);
-                const data = await response.json();
-                jobTitles = data.jobTitles || [];
-            } catch (error) {
-                console.error('Failed to load job titles:', error);
-            }
-        }
-
-        function filterJobTitles() {
-            const input = document.getElementById('jobTitle').value.toLowerCase();
-            const list = document.getElementById('jobTitleList');
-            
-            if (!input) {
-                list.classList.remove('show');
-                return;
-            }
-            
-            const filtered = jobTitles.filter(j => j.toLowerCase().includes(input));
-            
-            if (filtered.length > 0) {
-                list.innerHTML = filtered.map(j => 
-                    `<div class="autocomplete-item" onclick="selectJobTitle('${j.replace(/'/g, "\\'")}')">${j}</div>`
-                ).join('');
-                list.classList.add('show');
-            } else {
-                list.classList.remove('show');
-            }
-        }
-
-        function selectJobTitle(title) {
-            document.getElementById('jobTitle').value = title;
-            document.getElementById('jobTitleList').classList.remove('show');
-        }
-
+        // ============================================
+        // Who Applied
+        // ============================================
         function handleWhoAppliedChange() {
             const select = document.getElementById('whoApplied');
             const newPersonInput = document.getElementById('newPersonName');
-            
             if (select.value === '__new__') {
                 newPersonInput.style.display = 'block';
                 newPersonInput.focus();
@@ -653,182 +529,224 @@
             return select.value;
         }
 
-        // Hide autocomplete when clicking outside
-        document.addEventListener('click', function(e) {
-            if (!e.target.closest('.autocomplete-wrapper') && !e.target.closest('.autocomplete-container')) {
-                document.getElementById('candidateList').classList.remove('show');
-                document.getElementById('companyList').classList.remove('show');
-                document.getElementById('jobTitleList').classList.remove('show');
-            }
-        });
+        // ============================================
+        // Tabs
+        // ============================================
+        function showTab(tab) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+            document.querySelector(`.tab:nth-child(${tab === 'add' ? 1 : 2})`).classList.add('active');
+            document.getElementById(tab + 'Tab').classList.add('active');
 
-        async function handleFileUpload(event) {
-            const file = event.target.files[0];
-            if (!file) return;
-            
-            document.getElementById('fileName').textContent = file.name;
-            
-            try {
-                resumeText = await extractTextFromFile(file);
-            } catch (error) {
-                console.error('Failed to extract text:', error);
-                resumeText = '';
+            if (tab === 'history') {
+                updateFilterDropdown();
+                renderApplications();
             }
         }
 
-        async function extractTextFromFile(file) {
-            const fileName = file.name.toLowerCase();
-            
-            if (fileName.endsWith('.pdf')) {
-                const arrayBuffer = await file.arrayBuffer();
-                const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
-                let text = '';
-                
-                for (let i = 1; i <= pdf.numPages; i++) {
-                    const page = await pdf.getPage(i);
-                    const content = await page.getTextContent();
-                    text += content.items.map(item => item.str).join(' ') + '\n';
-                }
-                return text;
-            } else if (fileName.endsWith('.docx')) {
-                const arrayBuffer = await file.arrayBuffer();
-                const result = await mammoth.extractRawText({arrayBuffer: arrayBuffer});
-                return result.value;
-            }
-            
-            return '';
-        }
-
-        async function saveApplication() {
+        // ============================================
+        // Save Application
+        // ============================================
+        function saveApplication() {
             const candidate = document.getElementById('candidateName').value.trim();
             const company = document.getElementById('company').value.trim();
             const jobTitle = document.getElementById('jobTitle').value.trim();
             const whoApplied = getWhoApplied();
             const jdLink = document.getElementById('jdLink').value.trim();
             const jobDescription = document.getElementById('jobDescription').value.trim();
-            
+            const resumeFileName = document.getElementById('resumeFileName').value.trim();
+            const dateApplied = document.getElementById('dateApplied').value || new Date().toISOString().split('T')[0];
+
             if (!candidate || !company || !jobTitle) {
                 showError('Please fill in Candidate Name, Company, and Job Title');
                 return;
             }
-            
             if (!whoApplied) {
                 showError('Please select or enter who applied');
                 return;
             }
-            
-            if (!jdLink && !jobDescription) {
-                showError('Please provide either a JD Link or paste the Job Description');
-                return;
-            }
-            
-            if (!SCRIPT_URL) {
-                showError('Please configure the Google Apps Script URL first');
-                return;
-            }
-            
-            const btn = document.getElementById('saveBtn');
-            btn.disabled = true;
-            btn.textContent = 'Saving...';
-            
-            try {
-                const response = await fetch(SCRIPT_URL, {
-                    method: 'POST',
-                    mode: 'no-cors',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        candidate: candidate,
-                        company: company,
-                        jobTitle: jobTitle,
-                        whoApplied: whoApplied,
-                        jdLink: jdLink,
-                        jobDescription: jobDescription.substring(0, 1000),
-                        dateApplied: document.getElementById('dateApplied').value || new Date().toISOString().split('T')[0],
-                        resumeSummary: resumeText.substring(0, 500),
-                        status: 'Applied'
-                    })
-                });
-                
-                // With no-cors, we can't read the response, so assume success
-                showSuccess(`Application saved for ${candidate} at ${company}!`);
-                
-                // Clear form
-                document.getElementById('candidateName').value = '';
-                document.getElementById('company').value = '';
-                document.getElementById('jobTitle').value = '';
-                document.getElementById('whoApplied').value = '';
-                document.getElementById('newPersonName').value = '';
-                document.getElementById('newPersonName').style.display = 'none';
-                document.getElementById('jdLink').value = '';
-                document.getElementById('jobDescription').value = '';
-                document.getElementById('dateApplied').value = new Date().toISOString().split('T')[0];
-                document.getElementById('fileName').textContent = '';
-                resumeText = '';
-                
-                // Reload autocomplete lists
-                loadCandidates();
-                loadCompanies();
-                loadJobTitles();
-                
-            } catch (error) {
-                showError('Failed to save: ' + error.message);
-            } finally {
-                btn.disabled = false;
-                btn.textContent = 'Save Application';
+
+            const apps = getApplications();
+            apps.push({
+                id: Date.now().toString(),
+                candidate,
+                company,
+                jobTitle,
+                whoApplied,
+                jdLink,
+                jobDescription,
+                resumeFileName,
+                dateApplied,
+                status: 'Applied'
+            });
+            saveApplications(apps);
+
+            showSuccess(`Application saved for ${candidate} at ${company}!`);
+
+            // Clear form
+            document.getElementById('candidateName').value = '';
+            document.getElementById('company').value = '';
+            document.getElementById('jobTitle').value = '';
+            document.getElementById('whoApplied').value = '';
+            document.getElementById('newPersonName').value = '';
+            document.getElementById('newPersonName').style.display = 'none';
+            document.getElementById('jdLink').value = '';
+            document.getElementById('jobDescription').value = '';
+            document.getElementById('resumeFileName').value = '';
+            document.getElementById('dateApplied').value = new Date().toISOString().split('T')[0];
+        }
+
+        // ============================================
+        // Delete Application
+        // ============================================
+        function deleteApplication(id) {
+            if (!confirm('Delete this application?')) return;
+            const apps = getApplications().filter(a => a.id !== id);
+            saveApplications(apps);
+            updateFilterDropdown();
+            renderApplications();
+        }
+
+        // ============================================
+        // Update Status
+        // ============================================
+        function updateStatus(id, newStatus) {
+            const apps = getApplications();
+            const app = apps.find(a => a.id === id);
+            if (app) {
+                app.status = newStatus;
+                saveApplications(apps);
+                renderApplications();
             }
         }
 
-        async function loadApplications() {
-            if (!SCRIPT_URL) return;
-            
-            const candidate = document.getElementById('filterCandidate').value;
+        // ============================================
+        // Render History
+        // ============================================
+        function updateFilterDropdown() {
+            const select = document.getElementById('filterCandidate');
+            const current = select.value;
+            const candidates = getUniqueValues('candidate');
+            select.innerHTML = '<option value="">All Candidates</option>';
+            candidates.forEach(c => {
+                select.innerHTML += `<option value="${c}">${c}</option>`;
+            });
+            select.value = current;
+        }
+
+        function renderApplications() {
+            const filter = document.getElementById('filterCandidate').value;
+            let apps = getApplications();
+            if (filter) {
+                apps = apps.filter(a => a.candidate === filter);
+            }
+            // Sort newest first
+            apps.sort((a, b) => (b.dateApplied || '').localeCompare(a.dateApplied || ''));
+
+            document.getElementById('appCount').textContent = `${apps.length} application${apps.length !== 1 ? 's' : ''}`;
+
             const container = document.getElementById('applicationsContainer');
-            container.innerHTML = '<div class="empty-state">Loading...</div>';
-            
-            try {
-                const action = candidate ? `getApplications&candidate=${encodeURIComponent(candidate)}` : 'getAllApplications';
-                const response = await fetch(`${SCRIPT_URL}?action=${action}`);
-                const data = await response.json();
-                
-                if (data.applications && data.applications.length > 0) {
-                    container.innerHTML = `
-                        <table class="applications-table">
-                            <thead>
-                                <tr>
-                                    <th>Candidate</th>
-                                    <th>Company</th>
-                                    <th>Job Title</th>
-                                    <th>Applied By</th>
-                                    <th>Date</th>
-                                    <th>Status</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                ${data.applications.map(app => `
-                                    <tr>
-                                        <td>${app.candidate}</td>
-                                        <td>${app.company}</td>
-                                        <td>
-                                            ${app.jdLink ? `<a href="${app.jdLink}" target="_blank" class="jd-link">${app.jobTitle}</a>` : app.jobTitle}
-                                        </td>
-                                        <td>${app.whoApplied || '-'}</td>
-                                        <td>${app.dateApplied}</td>
-                                        <td><span class="status-badge status-${app.status?.toLowerCase() || 'applied'}">${app.status || 'Applied'}</span></td>
-                                    </tr>
-                                `).join('')}
-                            </tbody>
-                        </table>
-                    `;
-                } else {
-                    container.innerHTML = '<div class="empty-state">No applications found. Add your first one!</div>';
-                }
-            } catch (error) {
-                container.innerHTML = `<div class="empty-state">Failed to load applications. Make sure the Script URL is correct.</div>`;
+            if (apps.length === 0) {
+                container.innerHTML = '<div class="empty-state">No applications found. Add your first one!</div>';
+                return;
             }
+
+            container.innerHTML = `
+                <table class="applications-table">
+                    <thead>
+                        <tr>
+                            <th>Candidate</th>
+                            <th>Company</th>
+                            <th>Job Title</th>
+                            <th>Applied By</th>
+                            <th>Date</th>
+                            <th>Resume</th>
+                            <th>Status</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${apps.map(app => `
+                            <tr>
+                                <td>${escapeHtml(app.candidate)}</td>
+                                <td>${escapeHtml(app.company)}</td>
+                                <td>${app.jdLink ? `<a href="${escapeHtml(app.jdLink)}" target="_blank" class="jd-link">${escapeHtml(app.jobTitle)}</a>` : escapeHtml(app.jobTitle)}</td>
+                                <td>${escapeHtml(app.whoApplied || '-')}</td>
+                                <td>${escapeHtml(app.dateApplied || '-')}</td>
+                                <td>${escapeHtml(app.resumeFileName || '-')}</td>
+                                <td>
+                                    <select onchange="updateStatus('${app.id}', this.value)" style="padding:3px 6px; font-size:0.75rem; border:1px solid #e5e7eb; border-radius:4px;">
+                                        <option value="Applied" ${app.status === 'Applied' ? 'selected' : ''}>Applied</option>
+                                        <option value="Interview" ${app.status === 'Interview' ? 'selected' : ''}>Interview</option>
+                                        <option value="Offer" ${app.status === 'Offer' ? 'selected' : ''}>Offer</option>
+                                        <option value="Rejected" ${app.status === 'Rejected' ? 'selected' : ''}>Rejected</option>
+                                    </select>
+                                </td>
+                                <td><button class="btn-delete" onclick="deleteApplication('${app.id}')">Delete</button></td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
         }
 
+        function escapeHtml(str) {
+            if (!str) return '';
+            return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        }
+
+        // ============================================
+        // Download as Excel (CSV that Excel opens)
+        // ============================================
+        function downloadExcel() {
+            const apps = getApplications();
+            if (apps.length === 0) {
+                showError('No applications to export');
+                return;
+            }
+
+            const headers = ['Candidate', 'Company', 'Job Title', 'Applied By', 'Date Applied', 'Resume File', 'JD Link', 'Job Description', 'Status'];
+            const rows = apps.map(a => [
+                csvEscape(a.candidate),
+                csvEscape(a.company),
+                csvEscape(a.jobTitle),
+                csvEscape(a.whoApplied),
+                csvEscape(a.dateApplied),
+                csvEscape(a.resumeFileName),
+                csvEscape(a.jdLink),
+                csvEscape(a.jobDescription),
+                csvEscape(a.status)
+            ]);
+
+            // BOM for Excel to recognize UTF-8
+            let csv = '\uFEFF' + headers.join(',') + '\n';
+            rows.forEach(row => {
+                csv += row.join(',') + '\n';
+            });
+
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `Job_Applications_${new Date().toISOString().split('T')[0]}.csv`;
+            link.click();
+            URL.revokeObjectURL(url);
+
+            showSuccess('Excel file downloaded!');
+        }
+
+        function csvEscape(val) {
+            if (!val) return '';
+            val = String(val);
+            if (val.includes(',') || val.includes('"') || val.includes('\n')) {
+                return '"' + val.replace(/"/g, '""') + '"';
+            }
+            return val;
+        }
+
+        // ============================================
+        // Messages
+        // ============================================
         function showSuccess(message) {
             const el = document.getElementById('successMessage');
             el.textContent = message;
@@ -842,6 +760,13 @@
             el.classList.add('show');
             setTimeout(() => el.classList.remove('show'), 5000);
         }
+
+        // ============================================
+        // Init
+        // ============================================
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('dateApplied').value = new Date().toISOString().split('T')[0];
+        });
     </script>
 </body>
 </html>
