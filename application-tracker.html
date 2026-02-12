@@ -562,6 +562,7 @@
                     </div>
                     <div style="display: flex; gap: 8px; align-items: center;">
                         <span class="count-badge" id="appCount">0</span>
+                        <button class="btn btn-export" onclick="refreshData()" style="background: #6366f1; padding: 12px 20px;">🔄 Refresh</button>
                         <button class="btn btn-export" onclick="downloadExcel()">📥 Export to ZIP</button>
                     </div>
                 </div>
@@ -589,6 +590,11 @@
         // Firebase Firestore Storage (shared cloud storage)
         // ============================================
         const COLLECTION_NAME = 'applications';
+        
+        // Cache to prevent excessive reads
+        let applicationsCache = null;
+        let cacheTimestamp = null;
+        const CACHE_DURATION = 30000; // 30 seconds
 
         async function waitForFirebase() {
             while (!window.firebaseReady) {
@@ -596,19 +602,37 @@
             }
         }
 
-        async function getApplications() {
+        async function getApplications(forceRefresh = false) {
             await waitForFirebase();
+            
+            // Return cached data if available and fresh
+            const now = Date.now();
+            if (!forceRefresh && applicationsCache && cacheTimestamp && (now - cacheTimestamp < CACHE_DURATION)) {
+                console.log('📦 Using cached data (preventing Firebase read)');
+                return applicationsCache;
+            }
+            
+            console.log('🔄 Fetching from Firebase...');
             const { collection, getDocs, query, orderBy } = await import('https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js');
             const q = query(collection(window.db, COLLECTION_NAME), orderBy('dateApplied', 'desc'));
             const snapshot = await getDocs(q);
             // IMPORTANT: Put ...doc.data() first, then override id with Firestore doc ID
-            return snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
+            applicationsCache = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
+            cacheTimestamp = now;
+            return applicationsCache;
+        }
+        
+        // Clear cache when data changes
+        function clearCache() {
+            applicationsCache = null;
+            cacheTimestamp = null;
         }
 
         async function addApplication(app) {
             await waitForFirebase();
             const { collection, addDoc } = await import('https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js');
             await addDoc(collection(window.db, COLLECTION_NAME), app);
+            clearCache(); // Clear cache after adding
         }
 
         async function updateApplication(app) {
@@ -617,12 +641,14 @@
             const docRef = doc(window.db, COLLECTION_NAME, app.id);
             const { id, ...data } = app;
             await updateDoc(docRef, data);
+            clearCache(); // Clear cache after updating
         }
 
         async function removeApplication(id) {
             await waitForFirebase();
             const { doc, deleteDoc } = await import('https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js');
             await deleteDoc(doc(window.db, COLLECTION_NAME, id));
+            clearCache(); // Clear cache after deleting
         }
 
         async function getUniqueValues(field) {
@@ -922,6 +948,15 @@
             // Sort newest first
             apps.sort((a, b) => (b.dateApplied || '').localeCompare(a.dateApplied || ''));
             return apps;
+        }
+
+        // Refresh data from Firebase
+        async function refreshData() {
+            showSuccess('Refreshing data from Firebase...');
+            clearCache();
+            await updateFilterDropdown();
+            await renderApplications();
+            showSuccess('✓ Data refreshed!');
         }
 
         async function renderApplications() {
