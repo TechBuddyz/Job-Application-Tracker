@@ -437,6 +437,57 @@
             text-decoration: underline;
         }
 
+        .field-error {
+            font-size: 0.75rem;
+            color: #ef4444;
+            margin-top: 4px;
+            display: block;
+        }
+
+        .has-error input,
+        .has-error select,
+        .has-error textarea {
+            border-color: #ef4444 !important;
+            box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1) !important;
+        }
+
+        .mandatory-star {
+            color: #ef4444;
+            margin-left: 2px;
+        }
+
+        .btn-bulk-delete {
+            background: #ef4444;
+            width: auto;
+            padding: 12px 20px;
+            font-size: 0.9375rem;
+        }
+
+        .btn-bulk-delete:hover {
+            background: #dc2626;
+            box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+        }
+
+        .applications-table th:first-child,
+        .applications-table td:first-child {
+            width: 40px;
+            text-align: center;
+        }
+
+        .screenshot-thumb {
+            width: 40px;
+            height: 40px;
+            object-fit: cover;
+            border-radius: 4px;
+            cursor: pointer;
+            border: 1px solid #e5e7eb;
+        }
+
+        .screenshot-thumb:hover {
+            border-color: #6366f1;
+            box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+        }
+
         @media (max-width: 640px) {
             .form-row {
                 grid-template-columns: 1fr;
@@ -470,8 +521,8 @@
             <!-- Add Application Tab -->
             <div id="addTab" class="tab-content active">
                 <div class="form-row">
-                    <div class="form-group">
-                        <label>Candidate Name</label>
+                    <div class="form-group" id="fg-candidateName">
+                        <label>Candidate Name<span class="mandatory-star">*</span></label>
                         <div class="autocomplete-wrapper">
                             <input type="text" id="candidateName" placeholder="Enter or select candidate" 
                                    oninput="filterAutocomplete('candidateName','candidateList','candidates')" 
@@ -479,8 +530,8 @@
                             <div class="autocomplete-list" id="candidateList"></div>
                         </div>
                     </div>
-                    <div class="form-group">
-                        <label>Company</label>
+                    <div class="form-group" id="fg-company">
+                        <label>Company<span class="mandatory-star">*</span></label>
                         <div class="autocomplete-wrapper">
                             <input type="text" id="company" placeholder="e.g., Google" 
                                    oninput="filterAutocomplete('company','companyList','companies')" 
@@ -491,8 +542,8 @@
                 </div>
 
                 <div class="form-row">
-                    <div class="form-group">
-                        <label>Job Title</label>
+                    <div class="form-group" id="fg-jobTitle">
+                        <label>Job Title<span class="mandatory-star">*</span></label>
                         <div class="autocomplete-wrapper">
                             <input type="text" id="jobTitle" placeholder="e.g., Software Engineer" 
                                    oninput="filterAutocomplete('jobTitle','jobTitleList','jobTitles')" 
@@ -500,8 +551,8 @@
                             <div class="autocomplete-list" id="jobTitleList"></div>
                         </div>
                     </div>
-                    <div class="form-group">
-                        <label>Who Applied</label>
+                    <div class="form-group" id="fg-whoApplied">
+                        <label>Who Applied<span class="mandatory-star">*</span></label>
                         <select id="whoApplied" onchange="handleWhoAppliedChange()">
                             <option value="">Select person</option>
                             <option value="__new__">+ Add New Person</option>
@@ -511,23 +562,23 @@
                 </div>
 
                 <div class="form-row">
-                    <div class="form-group">
-                        <label>Date Applied</label>
+                    <div class="form-group" id="fg-dateApplied">
+                        <label>Date Applied<span class="mandatory-star">*</span></label>
                         <input type="date" id="dateApplied">
                     </div>
-                    <div class="form-group">
-                        <label>JD Link</label>
+                    <div class="form-group" id="fg-jdLink">
+                        <label>JD Link<span class="mandatory-star">*</span></label>
                         <input type="text" id="jdLink" placeholder="https://...">
                     </div>
                 </div>
 
-                <div class="form-group">
-                    <label>Job Description</label>
+                <div class="form-group" id="fg-jobDescription">
+                    <label>Job Description<span class="mandatory-star">*</span></label>
                     <textarea id="jobDescription" rows="4" placeholder="Paste the job description here..." style="resize: vertical;"></textarea>
                 </div>
 
-                <div class="form-group">
-                    <label>Resume</label>
+                <div class="form-group" id="fg-resume">
+                    <label>Resume<span class="mandatory-star">*</span></label>
                     <div style="display: flex; gap: 10px; align-items: center;">
                         <button type="button" onclick="document.getElementById('resumeFile').click()" 
                                 style="padding: 10px 16px; background: #f3f4f6; border: 1px solid #e5e7eb; border-radius: 6px; cursor: pointer; font-size: 0.875rem; color: #374151; white-space: nowrap;">
@@ -536,6 +587,19 @@
                         <input type="file" id="resumeFile" accept=".pdf,.docx,.doc" onchange="handleResumeUpload(event)" style="display: none;">
                         <span id="resumeDisplay" style="font-size: 0.875rem; color: #6b7280;">No file chosen</span>
                     </div>
+                </div>
+
+                <div class="form-group" id="fg-screenshot">
+                    <label>Application Screenshot<span class="mandatory-star">*</span></label>
+                    <div style="display: flex; gap: 10px; align-items: center;">
+                        <button type="button" onclick="document.getElementById('screenshotFile').click()" 
+                                style="padding: 10px 16px; background: #f3f4f6; border: 1px solid #e5e7eb; border-radius: 6px; cursor: pointer; font-size: 0.875rem; color: #374151; white-space: nowrap;">
+                            Choose Image
+                        </button>
+                        <input type="file" id="screenshotFile" accept=".png,.jpg,.jpeg,.gif,.webp" onchange="handleScreenshotUpload(event)" style="display: none;">
+                        <span id="screenshotDisplay" style="font-size: 0.875rem; color: #6b7280;">No image chosen</span>
+                    </div>
+                    <img id="screenshotPreview" style="display:none; margin-top:8px; max-width:200px; max-height:120px; border-radius:6px; border:1px solid #e5e7eb;">
                 </div>
 
                 <button class="btn" id="saveBtn" onclick="saveApplication()">Save Application</button>
@@ -560,8 +624,9 @@
                             <input type="date" id="filterDateTo" onchange="renderApplications()">
                         </div>
                     </div>
-                    <div style="display: flex; gap: 8px; align-items: center;">
+                    <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
                         <span class="count-badge" id="appCount">0</span>
+                        <button class="btn btn-bulk-delete" id="bulkDeleteBtn" onclick="bulkDeleteApplications()" style="display:none;">🗑 Delete Selected (0)</button>
                         <button class="btn btn-export" onclick="refreshData()" style="background: #6366f1; padding: 12px 20px;">🔄 Refresh</button>
                         <button class="btn btn-export" onclick="downloadExcel()">📥 Export to ZIP</button>
                     </div>
@@ -770,18 +835,40 @@
         let uploadedResumeFileName = '';
         let uploadedResumeType = '';
         let uploadedResumeBase64 = '';
+        let uploadedScreenshotFileName = '';
+        let uploadedScreenshotType = '';
+        let uploadedScreenshotBase64 = '';
 
         function handleResumeUpload(event) {
             const file = event.target.files[0];
             if (file) {
                 uploadedResumeFileName = file.name;
                 uploadedResumeType = file.type || 'application/pdf';
-                // Convert to base64 for Firebase Firestore storage
                 const reader = new FileReader();
                 reader.onload = function() {
-                    uploadedResumeBase64 = reader.result.split(',')[1]; // remove data:...;base64, prefix
+                    uploadedResumeBase64 = reader.result.split(',')[1];
                     document.getElementById('resumeDisplay').textContent = file.name;
                     document.getElementById('resumeDisplay').style.color = '#059669';
+                    clearFieldError('fg-resume');
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+
+        function handleScreenshotUpload(event) {
+            const file = event.target.files[0];
+            if (file) {
+                uploadedScreenshotFileName = file.name;
+                uploadedScreenshotType = file.type || 'image/png';
+                const reader = new FileReader();
+                reader.onload = function() {
+                    uploadedScreenshotBase64 = reader.result.split(',')[1];
+                    document.getElementById('screenshotDisplay').textContent = file.name;
+                    document.getElementById('screenshotDisplay').style.color = '#059669';
+                    const preview = document.getElementById('screenshotPreview');
+                    preview.src = reader.result;
+                    preview.style.display = 'block';
+                    clearFieldError('fg-screenshot');
                 };
                 reader.readAsDataURL(file);
             }
@@ -815,7 +902,55 @@
             });
         }
 
+        // ============================================
+        // Field Validation Helpers
+        // ============================================
+        function clearFieldErrors() {
+            document.querySelectorAll('.field-error').forEach(el => el.remove());
+            document.querySelectorAll('.has-error').forEach(el => el.classList.remove('has-error'));
+        }
+
+        function showFieldError(groupId, message) {
+            const group = document.getElementById(groupId);
+            if (!group) return;
+            group.classList.add('has-error');
+            const err = document.createElement('span');
+            err.className = 'field-error';
+            err.textContent = message;
+            group.appendChild(err);
+        }
+
+        function clearFieldError(groupId) {
+            const group = document.getElementById(groupId);
+            if (!group) return;
+            group.classList.remove('has-error');
+            const err = group.querySelector('.field-error');
+            if (err) err.remove();
+        }
+
+        // Add live clearing on user input
+        document.addEventListener('DOMContentLoaded', function() {
+            const fieldMap = {
+                'candidateName': 'fg-candidateName',
+                'company': 'fg-company',
+                'jobTitle': 'fg-jobTitle',
+                'whoApplied': 'fg-whoApplied',
+                'newPersonName': 'fg-whoApplied',
+                'dateApplied': 'fg-dateApplied',
+                'jdLink': 'fg-jdLink',
+                'jobDescription': 'fg-jobDescription'
+            };
+            Object.entries(fieldMap).forEach(([inputId, groupId]) => {
+                const el = document.getElementById(inputId);
+                if (el) {
+                    el.addEventListener('input', () => clearFieldError(groupId));
+                    el.addEventListener('change', () => clearFieldError(groupId));
+                }
+            });
+        });
+
         async function saveApplication() {
+            clearFieldErrors();
             const candidate = document.getElementById('candidateName').value.trim();
             const company = document.getElementById('company').value.trim();
             const jobTitle = document.getElementById('jobTitle').value.trim();
@@ -823,18 +958,25 @@
             const jdLink = document.getElementById('jdLink').value.trim();
             const jobDescription = document.getElementById('jobDescription').value.trim();
             const resumeFileName = uploadedResumeFileName;
-            const dateApplied = document.getElementById('dateApplied').value || new Date().toISOString().split('T')[0];
+            const dateApplied = document.getElementById('dateApplied').value;
 
-            if (!candidate || !company || !jobTitle) {
-                showError('Please fill in Candidate Name, Company, and Job Title');
-                return;
-            }
-            if (!whoApplied) {
-                showError('Please select or enter who applied');
-                return;
-            }
+            let hasErrors = false;
+            if (!candidate) { showFieldError('fg-candidateName', 'Candidate Name is required'); hasErrors = true; }
+            if (!company) { showFieldError('fg-company', 'Company is required'); hasErrors = true; }
+            if (!jobTitle) { showFieldError('fg-jobTitle', 'Job Title is required'); hasErrors = true; }
+            if (!whoApplied) { showFieldError('fg-whoApplied', 'Please select or enter who applied'); hasErrors = true; }
+            if (!dateApplied) { showFieldError('fg-dateApplied', 'Date Applied is required'); hasErrors = true; }
             if (!jdLink && !jobDescription) {
-                showError('Please provide at least a JD Link or paste the Job Description');
+                showFieldError('fg-jdLink', 'Provide a JD Link or Job Description');
+                showFieldError('fg-jobDescription', 'Provide a JD Link or Job Description');
+                hasErrors = true;
+            }
+            if (!uploadedResumeBase64) { showFieldError('fg-resume', 'Resume is required'); hasErrors = true; }
+            if (!uploadedScreenshotBase64) { showFieldError('fg-screenshot', 'Application screenshot is required'); hasErrors = true; }
+
+            if (hasErrors) {
+                const firstError = document.querySelector('.has-error');
+                if (firstError) firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 return;
             }
 
@@ -853,6 +995,9 @@
                     resumeFileName,
                     resumeBase64: uploadedResumeBase64 || '',
                     resumeType: uploadedResumeType || '',
+                    screenshotFileName: uploadedScreenshotFileName,
+                    screenshotBase64: uploadedScreenshotBase64 || '',
+                    screenshotType: uploadedScreenshotType || '',
                     dateApplied,
                     status: 'Applied',
                     timestamp: Date.now()
@@ -875,6 +1020,14 @@
                 uploadedResumeBase64 = '';
                 document.getElementById('resumeDisplay').textContent = 'No file chosen';
                 document.getElementById('resumeDisplay').style.color = '#6b7280';
+                document.getElementById('screenshotFile').value = '';
+                uploadedScreenshotFileName = '';
+                uploadedScreenshotType = '';
+                uploadedScreenshotBase64 = '';
+                document.getElementById('screenshotDisplay').textContent = 'No image chosen';
+                document.getElementById('screenshotDisplay').style.color = '#6b7280';
+                document.getElementById('screenshotPreview').style.display = 'none';
+                document.getElementById('screenshotPreview').src = '';
                 document.getElementById('dateApplied').value = new Date().toISOString().split('T')[0];
 
                 // Refresh Who Applied dropdown with new person
@@ -901,6 +1054,84 @@
                 console.error('Delete error:', error);
                 showError('Failed to delete application: ' + error.message);
             }
+        }
+
+        // ============================================
+        // Bulk Delete
+        // ============================================
+        function toggleSelectAll() {
+            const selectAll = document.getElementById('selectAll');
+            document.querySelectorAll('.row-checkbox').forEach(cb => {
+                cb.checked = selectAll.checked;
+            });
+            updateBulkDeleteBtn();
+        }
+
+        function updateBulkDeleteBtn() {
+            const checkboxes = document.querySelectorAll('.row-checkbox');
+            const checked = document.querySelectorAll('.row-checkbox:checked');
+            const btn = document.getElementById('bulkDeleteBtn');
+            const selectAll = document.getElementById('selectAll');
+
+            if (checked.length > 0) {
+                btn.style.display = 'inline-block';
+                btn.textContent = `🗑 Delete Selected (${checked.length})`;
+            } else {
+                btn.style.display = 'none';
+            }
+
+            if (selectAll) {
+                if (checkboxes.length > 0 && checked.length === checkboxes.length) {
+                    selectAll.checked = true;
+                    selectAll.indeterminate = false;
+                } else if (checked.length > 0) {
+                    selectAll.checked = false;
+                    selectAll.indeterminate = true;
+                } else {
+                    selectAll.checked = false;
+                    selectAll.indeterminate = false;
+                }
+            }
+        }
+
+        async function bulkDeleteApplications() {
+            const checked = document.querySelectorAll('.row-checkbox:checked');
+            const ids = Array.from(checked).map(cb => cb.value);
+            if (ids.length === 0) return;
+
+            if (!confirm(`Delete ${ids.length} application${ids.length !== 1 ? 's' : ''}? This cannot be undone.`)) return;
+
+            try {
+                showSuccess(`Deleting ${ids.length} application${ids.length !== 1 ? 's' : ''}...`);
+                for (const id of ids) {
+                    await removeApplication(id);
+                }
+                await updateFilterDropdown();
+                await renderApplications();
+                showSuccess(`✓ ${ids.length} application${ids.length !== 1 ? 's' : ''} deleted!`);
+            } catch (error) {
+                console.error('Bulk delete error:', error);
+                showError('Failed to delete some applications: ' + error.message);
+            }
+        }
+
+        // ============================================
+        // View Screenshot
+        // ============================================
+        function viewScreenshot(appId) {
+            getApplications().then(apps => {
+                const app = apps.find(a => a.id === appId);
+                if (!app || !app.screenshotBase64) {
+                    alert('Screenshot not available');
+                    return;
+                }
+                const dataUrl = `data:${app.screenshotType || 'image/png'};base64,${app.screenshotBase64}`;
+                const win = window.open('', '_blank');
+                if (win) {
+                    win.document.write(`<!DOCTYPE html><html><head><title>Screenshot - ${escapeHtml(app.candidate)} - ${escapeHtml(app.company)}</title><style>body{margin:0;background:#1a1a1a;display:flex;justify-content:center;align-items:center;min-height:100vh;}img{max-width:100%;max-height:100vh;object-fit:contain;}</style></head><body><img src="${dataUrl}"></body></html>`);
+                    win.document.close();
+                }
+            });
         }
 
         // ============================================
@@ -974,12 +1205,14 @@
                 <table class="applications-table">
                     <thead>
                         <tr>
+                            <th><input type="checkbox" id="selectAll" onchange="toggleSelectAll()"></th>
                             <th>Candidate</th>
                             <th>Company</th>
                             <th>Job Title</th>
                             <th>Applied By</th>
                             <th>Date</th>
                             <th>Resume</th>
+                            <th>Screenshot</th>
                             <th>JD</th>
                             <th>Status</th>
                             <th></th>
@@ -989,14 +1222,19 @@
                         ${apps.map(app => {
                             const hasJd = app.jobDescription || app.jdLink;
                             const jdLabel = app.jdLink && app.jobDescription ? 'View' : (app.jobDescription ? 'View' : (app.jdLink ? 'Link' : '-'));
+                            const screenshotCell = app.screenshotBase64
+                                ? `<img src="data:${app.screenshotType || 'image/png'};base64,${app.screenshotBase64}" class="screenshot-thumb" onclick="viewScreenshot('${app.id}')" title="Click to view full size">`
+                                : '-';
                             return `
                             <tr>
+                                <td><input type="checkbox" class="row-checkbox" value="${app.id}" onchange="updateBulkDeleteBtn()"></td>
                                 <td>${escapeHtml(app.candidate)}</td>
                                 <td>${escapeHtml(app.company)}</td>
                                 <td>${escapeHtml(app.jobTitle)}</td>
                                 <td>${escapeHtml(app.whoApplied || '-')}</td>
                                 <td>${escapeHtml(app.dateApplied || '-')}</td>
                                 <td>${app.resumeBase64 ? `<a href="#" onclick="event.preventDefault(); downloadResume('${app.id}')" class="jd-link">${escapeHtml(app.resumeFileName)}</a>` : escapeHtml(app.resumeFileName || '-')}</td>
+                                <td>${screenshotCell}</td>
                                 <td>${hasJd ? `<a href="#" onclick="event.preventDefault(); showJdModal('${app.id}')" class="jd-view-link">${jdLabel}</a>` : '-'}</td>
                                 <td>
                                     <select onchange="updateStatus('${app.id}', this.value)" style="padding:3px 6px; font-size:0.75rem; border:1px solid #e5e7eb; border-radius:4px;">
@@ -1012,6 +1250,7 @@
                     </tbody>
                 </table>
             `;
+            updateBulkDeleteBtn();
         }
 
         function escapeHtml(str) {
@@ -1082,10 +1321,8 @@
                             bytes[i] = binary.charCodeAt(i);
                         }
                         
-                        // Create unique filename: ID_Candidate_Company_OriginalName
                         const uniqueFileName = `${app.id}_${app.candidate}_${app.company}_${app.resumeFileName}`.replace(/[^a-zA-Z0-9._-]/g, '_');
                         
-                        // Add resume to Resumes folder in ZIP
                         zip.folder("Resumes").file(uniqueFileName, bytes);
                         resumeFiles.push({ name: uniqueFileName, appId: app.id });
                     } catch (e) {
@@ -1094,14 +1331,39 @@
                 }
             }
 
+            // Process all screenshots and add them to ZIP
+            const screenshotFiles = [];
+            for (const app of apps) {
+                if (app.screenshotBase64 && app.screenshotFileName) {
+                    try {
+                        const binary = atob(app.screenshotBase64);
+                        const bytes = new Uint8Array(binary.length);
+                        for (let i = 0; i < binary.length; i++) {
+                            bytes[i] = binary.charCodeAt(i);
+                        }
+                        
+                        const uniqueFileName = `${app.id}_${app.candidate}_${app.company}_${app.screenshotFileName}`.replace(/[^a-zA-Z0-9._-]/g, '_');
+                        
+                        zip.folder("Screenshots").file(uniqueFileName, bytes);
+                        screenshotFiles.push({ name: uniqueFileName, appId: app.id });
+                    } catch (e) {
+                        console.error('Failed to process screenshot for', app.candidate, e);
+                    }
+                }
+            }
+
             // Create CSV with simple data
-            const headers = ['Candidate', 'Company', 'Job Title', 'Applied By', 'Date Applied', 'Resume File Path', 'JD Link', 'Job Description', 'Status'];
+            const headers = ['Candidate', 'Company', 'Job Title', 'Applied By', 'Date Applied', 'Resume File Path', 'Screenshot File Path', 'JD Link', 'Job Description', 'Status'];
             const rows = apps.map(a => {
-                // Simple relative path to resume file
                 let resumePath = '';
                 const resumeFile = resumeFiles.find(rf => rf.appId === a.id);
                 if (resumeFile) {
                     resumePath = `Resumes/${resumeFile.name}`;
+                }
+                let screenshotPath = '';
+                const screenshotFile = screenshotFiles.find(sf => sf.appId === a.id);
+                if (screenshotFile) {
+                    screenshotPath = `Screenshots/${screenshotFile.name}`;
                 }
                 
                 return [
@@ -1111,6 +1373,7 @@
                     csvEscape(a.whoApplied || ''),
                     csvEscape(a.dateApplied || ''),
                     csvEscape(resumePath || 'N/A'),
+                    csvEscape(screenshotPath || 'N/A'),
                     csvEscape(a.jdLink || ''),
                     csvEscape(a.jobDescription || ''),
                     csvEscape(a.status || '')
@@ -1147,7 +1410,7 @@
                                    document.getElementById('filterDateFrom').value || 
                                    document.getElementById('filterDateTo').value;
                 const filterText = isFiltered ? ' (filtered)' : '';
-                showSuccess(`✓ Downloaded ${folderName}.zip with ${apps.length} application${apps.length !== 1 ? 's' : ''}${filterText} and ${resumeFiles.length} resume${resumeFiles.length !== 1 ? 's' : ''}!`);
+                showSuccess(`✓ Downloaded ${folderName}.zip with ${apps.length} application${apps.length !== 1 ? 's' : ''}${filterText}, ${resumeFiles.length} resume${resumeFiles.length !== 1 ? 's' : ''}, and ${screenshotFiles.length} screenshot${screenshotFiles.length !== 1 ? 's' : ''}!`);
             } catch (e) {
                 console.error('Failed to create ZIP:', e);
                 showError('Failed to create ZIP file. Please try again.');
