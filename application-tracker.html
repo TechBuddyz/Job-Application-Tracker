@@ -570,6 +570,10 @@
                         <label>JD Link<span class="mandatory-star">*</span></label>
                         <input type="text" id="jdLink" placeholder="https://...">
                     </div>
+                    <div class="form-group" id="fg-atsScore">
+                        <label>ATS Score (%)</label>
+                        <input type="number" id="atsScore" placeholder="e.g., 85" min="0" max="100">
+                    </div>
                 </div>
 
                 <div class="form-group" id="fg-jobDescription">
@@ -938,7 +942,8 @@
                 'newPersonName': 'fg-whoApplied',
                 'dateApplied': 'fg-dateApplied',
                 'jdLink': 'fg-jdLink',
-                'jobDescription': 'fg-jobDescription'
+                'jobDescription': 'fg-jobDescription',
+                'atsScore': 'fg-atsScore'
             };
             Object.entries(fieldMap).forEach(([inputId, groupId]) => {
                 const el = document.getElementById(inputId);
@@ -985,6 +990,9 @@
             btn.textContent = 'Saving...';
 
             try {
+                const atsScoreRaw = document.getElementById('atsScore').value;
+                const atsScore = atsScoreRaw !== '' ? Number(atsScoreRaw) : null;
+
                 const entry = {
                     candidate,
                     company,
@@ -999,6 +1007,7 @@
                     screenshotBase64: uploadedScreenshotBase64 || '',
                     screenshotType: uploadedScreenshotType || '',
                     dateApplied,
+                    atsScore,
                     status: 'Applied',
                     timestamp: Date.now()
                 };
@@ -1029,6 +1038,7 @@
                 document.getElementById('screenshotPreview').style.display = 'none';
                 document.getElementById('screenshotPreview').src = '';
                 document.getElementById('dateApplied').value = new Date().toISOString().split('T')[0];
+                document.getElementById('atsScore').value = '';
 
                 // Refresh Who Applied dropdown with new person
                 await populateWhoApplied();
@@ -1211,6 +1221,7 @@
                             <th>Job Title</th>
                             <th>Applied By</th>
                             <th>Date</th>
+                            <th>ATS Score</th>
                             <th>Resume</th>
                             <th>Screenshot</th>
                             <th>JD</th>
@@ -1233,6 +1244,7 @@
                                 <td>${escapeHtml(app.jobTitle)}</td>
                                 <td>${escapeHtml(app.whoApplied || '-')}</td>
                                 <td>${escapeHtml(app.dateApplied || '-')}</td>
+                                <td>${app.atsScore != null ? app.atsScore + '%' : '-'}</td>
                                 <td>${app.resumeBase64 ? `<a href="#" onclick="event.preventDefault(); downloadResume('${app.id}')" class="jd-link">${escapeHtml(app.resumeFileName)}</a>` : escapeHtml(app.resumeFileName || '-')}</td>
                                 <td>${screenshotCell}</td>
                                 <td>${hasJd ? `<a href="#" onclick="event.preventDefault(); showJdModal('${app.id}')" class="jd-view-link">${jdLabel}</a>` : '-'}</td>
@@ -1353,7 +1365,7 @@
             }
 
             // Create CSV with simple data
-            const headers = ['Candidate', 'Company', 'Job Title', 'Applied By', 'Date Applied', 'Resume File Path', 'Screenshot File Path', 'JD Link', 'Job Description', 'Status'];
+            const headers = ['Candidate', 'Company', 'Job Title', 'Applied By', 'Date Applied', 'ATS Score (%)', 'Resume File Path', 'Screenshot File Path', 'JD Link', 'Job Description', 'Status'];
             const rows = apps.map(a => {
                 let resumePath = '';
                 const resumeFile = resumeFiles.find(rf => rf.appId === a.id);
@@ -1372,6 +1384,7 @@
                     csvEscape(a.jobTitle || ''),
                     csvEscape(a.whoApplied || ''),
                     csvEscape(a.dateApplied || ''),
+                    csvEscape(a.atsScore != null ? String(a.atsScore) : ''),
                     csvEscape(resumePath || 'N/A'),
                     csvEscape(screenshotPath || 'N/A'),
                     csvEscape(a.jdLink || ''),
