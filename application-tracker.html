@@ -14,7 +14,7 @@
     <!-- Firebase SDK -->
     <script type="module">
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js';
-        import { getFirestore, collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
+        import { getFirestore, collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy, setDoc, getDoc } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
 
         const firebaseConfig = {
             apiKey: "AIzaSyCQqXPSVKQ--g2EFzQ_1eLBxMo_pV5o7NQ",
@@ -25,9 +25,15 @@
             appId: "1:917048657393:web:87efc97c88f794bcd43050"
         };
 
+        // Promise-based ready signal — resolves the instant Firebase is up
+        window.firebaseReadyPromise = new Promise(resolve => { window._resolveFirebase = resolve; });
+
         const app = initializeApp(firebaseConfig);
         window.db = getFirestore(app);
+        // Expose all Firestore functions once — no more per-call dynamic imports
+        window.firestoreFns = { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy, setDoc, getDoc };
         window.firebaseReady = true;
+        window._resolveFirebase();
         console.log('✓ Firebase initialized');
     </script>
     
@@ -620,12 +626,11 @@
                             </select>
                         </div>
                         <div class="form-group">
-                            <label>From</label>
-                            <input type="date" id="filterDateFrom" onchange="renderApplications()">
+                            <label>Date Applied</label>
+                            <input type="date" id="filterDate" onchange="renderApplications()">
                         </div>
-                        <div class="form-group">
-                            <label>To</label>
-                            <input type="date" id="filterDateTo" onchange="renderApplications()">
+                        <div class="form-group" style="display:flex;align-items:flex-end;">
+                            <button onclick="clearFilters()" style="padding:10px 14px;background:#f3f4f6;border:1px solid #e5e7eb;border-radius:6px;cursor:pointer;font-size:0.875rem;color:#374151;">Clear Filters</button>
                         </div>
                     </div>
                     <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
@@ -664,10 +669,16 @@
         let applicationsCache = null;
         let cacheTimestamp = null;
         const CACHE_DURATION = 30000; // 30 seconds
+        let uniqueValuesCache = {};
 
         async function waitForFirebase() {
-            while (!window.firebaseReady) {
-                await new Promise(resolve => setTimeout(resolve, 50));
+            // Use Promise if available (fast path), fall back to polling
+            if (window.firebaseReadyPromise) {
+                await window.firebaseReadyPromise;
+            } else {
+                while (!window.firebaseReady) {
+                    await new Promise(resolve => setTimeout(resolve, 50));
+                }
             }
         }
 
@@ -682,11 +693,11 @@
             }
             
             console.log('🔄 Fetching from Firebase...');
-            const { collection, getDocs, query, orderBy } = await import('https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js');
+            // Use pre-imported functions — no per-call dynamic import overhead
+            const { collection, getDocs, query, orderBy } = window.firestoreFns;
             const q = query(collection(window.db, COLLECTION_NAME), orderBy('dateApplied', 'desc'));
             const snapshot = await getDocs(q);
-            // IMPORTANT: Put ...doc.data() first, then override id with Firestore doc ID
-            applicationsCache = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
+            applicationsCache = snapshot.docs.map(d => ({ ...d.data(), id: d.id }));
             cacheTimestamp = now;
             return applicationsCache;
         }
@@ -695,34 +706,49 @@
         function clearCache() {
             applicationsCache = null;
             cacheTimestamp = null;
+            uniqueValuesCache = {};
         }
 
         async function addApplication(app) {
             await waitForFirebase();
-            const { collection, addDoc } = await import('https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js');
-            await addDoc(collection(window.db, COLLECTION_NAME), app);
-            clearCache(); // Clear cache after adding
+            const { collection, addDoc, doc, setDoc } = window.firestoreFns;
+            // Split binary data out of main doc — keeps main docs tiny so history loads fast
+            const { resumeBase64, screenshotBase64, ...metadata } = app;
+            const docRef = await addDoc(collection(window.db, COLLECTION_NAME), metadata);
+            // Store binary files in a subcollection doc, fetched on-demand only
+            if (resumeBase64 || screenshotBase64) {
+                await setDoc(doc(window.db, COLLECTION_NAME, docRef.id, 'files', 'data'), {
+                    resumeBase64: resumeBase64 || '',
+                    screenshotBase64: screenshotBase64 || ''
+                });
+            }
+            clearCache();
         }
 
         async function updateApplication(app) {
             await waitForFirebase();
-            const { doc, updateDoc } = await import('https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js');
+            const { doc, updateDoc } = window.firestoreFns;
             const docRef = doc(window.db, COLLECTION_NAME, app.id);
-            const { id, ...data } = app;
+            // Exclude id and binary blobs from main doc update
+            const { id, resumeBase64, screenshotBase64, ...data } = app;
             await updateDoc(docRef, data);
-            clearCache(); // Clear cache after updating
+            clearCache();
         }
 
         async function removeApplication(id) {
             await waitForFirebase();
-            const { doc, deleteDoc } = await import('https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js');
+            const { doc, deleteDoc } = window.firestoreFns;
+            // Delete files subcollection doc first (best-effort, may not exist for old records)
+            try { await deleteDoc(doc(window.db, COLLECTION_NAME, id, 'files', 'data')); } catch(e) {}
             await deleteDoc(doc(window.db, COLLECTION_NAME, id));
-            clearCache(); // Clear cache after deleting
+            clearCache();
         }
 
         async function getUniqueValues(field) {
+            if (uniqueValuesCache[field]) return uniqueValuesCache[field];
             const apps = await getApplications();
-            return [...new Set(apps.map(a => a[field]).filter(Boolean))].sort();
+            uniqueValuesCache[field] = [...new Set(apps.map(a => a[field]).filter(Boolean))].sort();
+            return uniqueValuesCache[field];
         }
 
         // ============================================
@@ -878,32 +904,39 @@
             }
         }
 
-        function downloadResume(appId) {
-            getApplications().then(apps => {
-                const app = apps.find(a => a.id === appId);
-                if (!app || !app.resumeBase64) {
-                    alert('Resume not available');
-                    return;
-                }
-                // Convert base64 back to blob and download
-                try {
-                    const binary = atob(app.resumeBase64);
-                    const bytes = new Uint8Array(binary.length);
-                    for (let i = 0; i < binary.length; i++) {
-                        bytes[i] = binary.charCodeAt(i);
-                    }
-                    const blob = new Blob([bytes], { type: app.resumeType || 'application/pdf' });
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = app.resumeFileName || 'resume.pdf';
-                    a.click();
-                    URL.revokeObjectURL(url);
-                } catch (e) {
-                    console.error('Failed to download resume:', e);
-                    alert('Failed to download resume');
-                }
-            });
+        async function downloadResume(appId) {
+            const apps = await getApplications();
+            const app = apps.find(a => a.id === appId);
+            if (!app) { alert('Application not found'); return; }
+
+            let resumeBase64 = app.resumeBase64; // old records have it here
+            const resumeType = app.resumeType || 'application/pdf';
+            const resumeFileName = app.resumeFileName || 'resume.pdf';
+
+            // New records: base64 lives in the files subcollection — fetch on demand
+            if (!resumeBase64) {
+                const { doc, getDoc } = window.firestoreFns;
+                const filesSnap = await getDoc(doc(window.db, COLLECTION_NAME, appId, 'files', 'data'));
+                if (filesSnap.exists()) resumeBase64 = filesSnap.data().resumeBase64;
+            }
+
+            if (!resumeBase64) { alert('Resume not available'); return; }
+
+            try {
+                const binary = atob(resumeBase64);
+                const bytes = new Uint8Array(binary.length);
+                for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+                const blob = new Blob([bytes], { type: resumeType });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = resumeFileName;
+                a.click();
+                URL.revokeObjectURL(url);
+            } catch (e) {
+                console.error('Failed to download resume:', e);
+                alert('Failed to download resume');
+            }
         }
 
         // ============================================
@@ -1128,33 +1161,45 @@
         // ============================================
         // View Screenshot
         // ============================================
-        function viewScreenshot(appId) {
-            getApplications().then(apps => {
-                const app = apps.find(a => a.id === appId);
-                if (!app || !app.screenshotBase64) {
-                    alert('Screenshot not available');
-                    return;
-                }
-                const dataUrl = `data:${app.screenshotType || 'image/png'};base64,${app.screenshotBase64}`;
-                const win = window.open('', '_blank');
-                if (win) {
-                    win.document.write(`<!DOCTYPE html><html><head><title>Screenshot - ${escapeHtml(app.candidate)} - ${escapeHtml(app.company)}</title><style>body{margin:0;background:#1a1a1a;display:flex;justify-content:center;align-items:center;min-height:100vh;}img{max-width:100%;max-height:100vh;object-fit:contain;}</style></head><body><img src="${dataUrl}"></body></html>`);
-                    win.document.close();
-                }
-            });
+        async function viewScreenshot(appId) {
+            const apps = await getApplications();
+            const app = apps.find(a => a.id === appId);
+            if (!app) { alert('Application not found'); return; }
+
+            let screenshotBase64 = app.screenshotBase64; // old records have it here
+            const screenshotType = app.screenshotType || 'image/png';
+
+            // New records: fetch from subcollection on demand
+            if (!screenshotBase64) {
+                const { doc, getDoc } = window.firestoreFns;
+                const filesSnap = await getDoc(doc(window.db, COLLECTION_NAME, appId, 'files', 'data'));
+                if (filesSnap.exists()) screenshotBase64 = filesSnap.data().screenshotBase64;
+            }
+
+            if (!screenshotBase64) { alert('Screenshot not available'); return; }
+
+            const dataUrl = `data:${screenshotType};base64,${screenshotBase64}`;
+            const win = window.open('', '_blank');
+            if (win) {
+                win.document.write(`<!DOCTYPE html><html><head><title>Screenshot - ${escapeHtml(app.candidate)} - ${escapeHtml(app.company)}</title><style>body{margin:0;background:#1a1a1a;display:flex;justify-content:center;align-items:center;min-height:100vh;}img{max-width:100%;max-height:100vh;object-fit:contain;}</style></head><body><img src="${dataUrl}"></body></html>`);
+                win.document.close();
+            }
         }
 
         // ============================================
         // Update Status
         // ============================================
         async function updateStatus(id, newStatus) {
-            const apps = await getApplications();
-            const app = apps.find(a => a.id === id);
-            if (app) {
-                app.status = newStatus;
-                await updateApplication(app);
-                await renderApplications();
+            await waitForFirebase();
+            const { doc, updateDoc } = window.firestoreFns;
+            // Direct single-field write — no need to read the whole document first
+            await updateDoc(doc(window.db, COLLECTION_NAME, id), { status: newStatus });
+            // Patch cache in-place to avoid a full re-fetch
+            if (applicationsCache) {
+                const app = applicationsCache.find(a => a.id === id);
+                if (app) app.status = newStatus;
             }
+            await renderApplications();
         }
 
         // ============================================
@@ -1173,22 +1218,24 @@
 
         // Get filtered applications based on current filter settings
         async function getFilteredApplications() {
-            const filter = document.getElementById('filterCandidate').value;
-            const dateFrom = document.getElementById('filterDateFrom').value;
-            const dateTo = document.getElementById('filterDateTo').value;
+            const candidateFilter = document.getElementById('filterCandidate').value;
+            const dateFilter = document.getElementById('filterDate').value;
             let apps = await getApplications();
-            if (filter) {
-                apps = apps.filter(a => a.candidate === filter);
+            if (candidateFilter) {
+                apps = apps.filter(a => a.candidate === candidateFilter);
             }
-            if (dateFrom) {
-                apps = apps.filter(a => a.dateApplied >= dateFrom);
-            }
-            if (dateTo) {
-                apps = apps.filter(a => a.dateApplied <= dateTo);
+            if (dateFilter) {
+                apps = apps.filter(a => a.dateApplied === dateFilter);
             }
             // Sort newest first
             apps.sort((a, b) => (b.dateApplied || '').localeCompare(a.dateApplied || ''));
             return apps;
+        }
+
+        function clearFilters() {
+            document.getElementById('filterCandidate').value = '';
+            document.getElementById('filterDate').value = '';
+            renderApplications();
         }
 
         // Refresh data from Firebase
@@ -1201,11 +1248,14 @@
         }
 
         async function renderApplications() {
+            const container = document.getElementById('applicationsContainer');
+            // Show loading state immediately so the user knows something is happening
+            container.innerHTML = '<div class="empty-state" style="color:#6366f1;">Loading applications…</div>';
+
             const apps = await getFilteredApplications();
 
             document.getElementById('appCount').textContent = `${apps.length} application${apps.length !== 1 ? 's' : ''}`;
 
-            const container = document.getElementById('applicationsContainer');
             if (apps.length === 0) {
                 container.innerHTML = '<div class="empty-state">No applications found. Add your first one!</div>';
                 return;
@@ -1233,8 +1283,9 @@
                         ${apps.map(app => {
                             const hasJd = app.jobDescription || app.jdLink;
                             const jdLabel = app.jdLink && app.jobDescription ? 'View' : (app.jobDescription ? 'View' : (app.jdLink ? 'Link' : '-'));
-                            const screenshotCell = app.screenshotBase64
-                                ? `<img src="data:${app.screenshotType || 'image/png'};base64,${app.screenshotBase64}" class="screenshot-thumb" onclick="viewScreenshot('${app.id}')" title="Click to view full size">`
+                            // Show a lightweight icon instead of embedding the full base64 image in every table row
+                            const screenshotCell = app.screenshotFileName
+                                ? `<button onclick="viewScreenshot('${app.id}')" style="background:none;border:none;cursor:pointer;font-size:1.3rem;color:#6366f1;padding:0;" title="Click to view screenshot">📷</button>`
                                 : '-';
                             return `
                             <tr>
@@ -1245,7 +1296,7 @@
                                 <td>${escapeHtml(app.whoApplied || '-')}</td>
                                 <td>${escapeHtml(app.dateApplied || '-')}</td>
                                 <td>${app.atsScore != null ? app.atsScore + '%' : '-'}</td>
-                                <td>${app.resumeBase64 ? `<a href="#" onclick="event.preventDefault(); downloadResume('${app.id}')" class="jd-link">${escapeHtml(app.resumeFileName)}</a>` : escapeHtml(app.resumeFileName || '-')}</td>
+                                <td>${app.resumeFileName ? `<a href="#" onclick="event.preventDefault(); downloadResume('${app.id}')" class="jd-link">${escapeHtml(app.resumeFileName)}</a>` : '-'}</td>
                                 <td>${screenshotCell}</td>
                                 <td>${hasJd ? `<a href="#" onclick="event.preventDefault(); showJdModal('${app.id}')" class="jd-view-link">${jdLabel}</a>` : '-'}</td>
                                 <td>
@@ -1322,12 +1373,29 @@
             // Create a new JSZip instance
             const zip = new JSZip();
 
+            // New-style records have base64 in a subcollection — fetch them all in parallel
+            const needsFetch = apps.filter(a => !a.resumeBase64 && !a.screenshotBase64 && (a.resumeFileName || a.screenshotFileName));
+            const filesMap = {};
+            if (needsFetch.length > 0) {
+                showSuccess(`Fetching ${needsFetch.length} file(s) for export\u2026 Please wait`);
+                const { doc, getDoc } = window.firestoreFns;
+                const results = await Promise.all(
+                    needsFetch.map(a =>
+                        getDoc(doc(window.db, COLLECTION_NAME, a.id, 'files', 'data'))
+                            .then(snap => ({ id: a.id, data: snap.exists() ? snap.data() : {} }))
+                            .catch(() => ({ id: a.id, data: {} }))
+                    )
+                );
+                results.forEach(r => { filesMap[r.id] = r.data; });
+            }
+
             // Process all resumes and add them to ZIP
             const resumeFiles = [];
             for (const app of apps) {
-                if (app.resumeBase64 && app.resumeFileName) {
+                const resumeBase64 = app.resumeBase64 || (filesMap[app.id] && filesMap[app.id].resumeBase64);
+                if (resumeBase64 && app.resumeFileName) {
                     try {
-                        const binary = atob(app.resumeBase64);
+                        const binary = atob(resumeBase64);
                         const bytes = new Uint8Array(binary.length);
                         for (let i = 0; i < binary.length; i++) {
                             bytes[i] = binary.charCodeAt(i);
@@ -1346,9 +1414,10 @@
             // Process all screenshots and add them to ZIP
             const screenshotFiles = [];
             for (const app of apps) {
-                if (app.screenshotBase64 && app.screenshotFileName) {
+                const screenshotBase64 = app.screenshotBase64 || (filesMap[app.id] && filesMap[app.id].screenshotBase64);
+                if (screenshotBase64 && app.screenshotFileName) {
                     try {
-                        const binary = atob(app.screenshotBase64);
+                        const binary = atob(screenshotBase64);
                         const bytes = new Uint8Array(binary.length);
                         for (let i = 0; i < binary.length; i++) {
                             bytes[i] = binary.charCodeAt(i);
@@ -1420,8 +1489,7 @@
 
                 // Check if filters are active
                 const isFiltered = document.getElementById('filterCandidate').value || 
-                                   document.getElementById('filterDateFrom').value || 
-                                   document.getElementById('filterDateTo').value;
+                                   document.getElementById('filterDate').value;
                 const filterText = isFiltered ? ' (filtered)' : '';
                 showSuccess(`✓ Downloaded ${folderName}.zip with ${apps.length} application${apps.length !== 1 ? 's' : ''}${filterText}, ${resumeFiles.length} resume${resumeFiles.length !== 1 ? 's' : ''}, and ${screenshotFiles.length} screenshot${screenshotFiles.length !== 1 ? 's' : ''}!`);
             } catch (e) {
